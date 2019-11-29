@@ -6,3 +6,4 @@ lib/CGI/Application/Plugin/OpenTracing.pod
 Makefile.PL
 MANIFEST
 README.md
+t/00_use_ok.t
