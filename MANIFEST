@@ -1,0 +1,8 @@
+cpanfile
+examples/lib/MyCGI.pm
+examples/test_server.pl
+lib/CGI/Application/Plugin/Opentracing.pm
+lib/CGI/Application/Plugin/Opentracing.pod
+Makefile.PL
+MANIFEST
+README.md
