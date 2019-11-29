@@ -3,6 +3,8 @@ package CGI::Application::Plugin::OpenTracing;
 use strict;
 use warnings;
 
+our $VERSION = '0.01';
+
 use base 'Exporter';
 
 use OpenTracing::Implementation;
