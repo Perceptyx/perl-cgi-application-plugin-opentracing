@@ -1,8 +1,8 @@
 cpanfile
 examples/lib/MyCGI.pm
 examples/test_server.pl
-lib/CGI/Application/Plugin/Opentracing.pm
-lib/CGI/Application/Plugin/Opentracing.pod
+lib/CGI/Application/Plugin/OpenTracing.pm
+lib/CGI/Application/Plugin/OpenTracing.pod
 Makefile.PL
 MANIFEST
 README.md
