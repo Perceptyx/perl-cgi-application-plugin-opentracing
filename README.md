@@ -43,3 +43,10 @@ method `get_active_span`.
 It will create a rootspan, for the duration of the entire execution of the
 webapp. On top off that root span, it will create three spans for the phases:
 setup, run and teardown.
+
+## Disclaimer
+
+For more information, always check the pod, using `perldoc`. This is just a ...
+well, a README, and only documents the module as it initially was conceived.
+Things may have turned out a bit differently. And this file may or may not been
+updated accordingly.
