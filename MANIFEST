@@ -3,6 +3,7 @@ examples/lib/MyCGI.pm
 examples/test_server.pl
 lib/CGI/Application/Plugin/OpenTracing.pm
 lib/CGI/Application/Plugin/OpenTracing.pod
+LICENSE.md
 Makefile.PL
 MANIFEST
 README.md
