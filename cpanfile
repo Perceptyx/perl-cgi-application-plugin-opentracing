@@ -1,5 +1,3 @@
-requires        'CGI::Application';
-requires        'CGI::Application::Server';
 requires        'OpenTracing::GlobalTracer';
 requires        'OpenTracing::Implementation';
 requires        'Time::HiRes';
@@ -9,5 +7,10 @@ on 'develop' => sub {
 };
 
 on 'test' => sub {
-    requires            "Test::Most";
+    requires    "Test::Most";
 };
+
+# on 'examples' => sub {
+#     requires    'CGI::Application';
+#     requires    'CGI::Application::Server';
+# };
