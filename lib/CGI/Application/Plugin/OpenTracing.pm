@@ -75,7 +75,8 @@ sub _init_opentracing_implementation {
         undef # $ENV{OPENTRACING_IMPLEMENTATION}
     ;
     
-    OpenTracing::Implementation->set( @implementation_settings )
+    OpenTracing::Implementation
+        ->bootstrap_global_tracer( @implementation_settings )
     
 }
 
