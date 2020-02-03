@@ -26,14 +26,7 @@ sub import {
     
     $caller->add_callback( postrun  => \&postrun  );
     
-    $caller->add_callback(
-        teardown => sub {
-            my $cgi_app = shift;
-            
-            _span_set_time_finish( $cgi_app, 'request' );
-            _span_scope_close( $cgi_app, 'request' );
-        }
-    );
+    $caller->add_callback( teardown => \&teardown );
     
 }
 
@@ -68,6 +61,15 @@ sub postrun {
     
     _span_set_time_finish( $cgi_app, 'run' );
     _span_scope_close( $cgi_app, 'run' );
+}
+
+
+
+sub teardown {
+    my $cgi_app = shift;
+    
+    _span_set_time_finish( $cgi_app, 'request' );
+    _span_scope_close( $cgi_app, 'request' );
 }
 
 
