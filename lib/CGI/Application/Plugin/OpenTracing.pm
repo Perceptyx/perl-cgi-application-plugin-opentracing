@@ -8,7 +8,7 @@ our $VERSION = '0.01';
 use base 'Exporter';
 
 use OpenTracing::Implementation;
-use OpenTracing::GlobalTracer qw/$TRACER/;
+use OpenTracing::GlobalTracer;
 
 use Time::HiRes qw( gettimeofday );
 
@@ -75,7 +75,8 @@ sub _init_opentracing_implementation {
         undef # $ENV{OPENTRACING_IMPLEMENTATION}
     ;
     
-    OpenTracing::Implementation->set( @implementation_settings )
+    OpenTracing::Implementation
+        ->bootstrap_global_tracer( @implementation_settings )
     
 }
 
@@ -84,11 +85,11 @@ sub _init_opentracing_implementation {
 sub _start_active_root_span {
     my $cgi_app = shift;
     
-    my $context = $TRACER->extract_context;
+    my $context = _get_global_tracer->extract_context;
     
     my $root_span_options = _get_root_span_options( $cgi_app );
     
-    my $scope = $TRACER->start_active_span( 'cgi_application' =>
+    my $scope = _get_global_tracer->start_active_span( 'cgi_application' =>
         %{$root_span_options},
         child_of => $context,
     );
@@ -124,7 +125,7 @@ sub _handle_postmortum_setup_span {
     my $method = _cgi_get_run_method( $cgi_app );
     my $operation_name = 'setup';
     
-    $TRACER
+    _get_global_tracer
     ->start_span( $operation_name =>
         start_time => _span_get_time_start( $cgi_app, 'setup' ),
     )
@@ -140,7 +141,7 @@ sub _start_active_run_span {
     my $method = _cgi_get_run_method( $cgi_app );
     my $operation_name = 'run';
     
-    my $scope = $TRACER->start_active_span( $operation_name );
+    my $scope = _get_global_tracer->start_active_span( $operation_name );
     
     _span_set_scope( $cgi_app, 'run', $scope );
     
@@ -239,6 +240,13 @@ sub _cgi_get_http_url {
 sub _epoch_floatingpoint {
     return scalar gettimeofday()
 }
+
+
+
+sub _get_global_tracer {
+    OpenTracing::GlobalTracer->get_global_tracer()
+}
+
 
 
 1;
