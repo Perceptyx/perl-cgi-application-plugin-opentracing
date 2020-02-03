@@ -22,20 +22,7 @@ sub import {
     
     $caller->add_callback( init     => \&init     );
         
-    $caller->add_callback(
-        prerun => sub {
-            my $cgi_app = shift;
-            
-            _span_set_time_finish( $cgi_app, 'setup' );
-            
-            _init_opentracing_implementation( $cgi_app );
-            _start_active_root_span( $cgi_app );
-            _handle_postmortum_setup_span( $cgi_app );
-            
-            _span_set_time_start( $cgi_app, 'run' );
-            _start_active_run_span( $cgi_app ); # and `set_scope`
-        }
-    );
+    $caller->add_callback( prerun   => \&prerun   );
     
     $caller->add_callback(
         postrun => sub {
@@ -64,6 +51,21 @@ sub init {
     
     _span_set_time_start( $cgi_app, 'request' );
     _span_set_time_start( $cgi_app, 'setup' );
+}
+
+
+
+sub prerun {
+    my $cgi_app = shift;
+    
+    _span_set_time_finish( $cgi_app, 'setup' );
+    
+    _init_opentracing_implementation( $cgi_app );
+    _start_active_root_span( $cgi_app );
+    _handle_postmortum_setup_span( $cgi_app );
+    
+    _span_set_time_start( $cgi_app, 'run' );
+    _start_active_run_span( $cgi_app ); # and `set_scope`
 }
 
 
