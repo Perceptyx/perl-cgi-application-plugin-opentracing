@@ -20,14 +20,7 @@ sub import {
     
     my $caller  = caller;
     
-    $caller->add_callback(
-        init => sub {
-            my $cgi_app = shift;
-            
-            _span_set_time_start( $cgi_app, 'request' );
-            _span_set_time_start( $cgi_app, 'setup' );
-        }
-    );
+    $caller->add_callback( init     => \&init     );
         
     $caller->add_callback(
         prerun => sub {
@@ -62,6 +55,15 @@ sub import {
         }
     );
     
+}
+
+
+
+sub init {
+    my $cgi_app = shift;
+    
+    _span_set_time_start( $cgi_app, 'request' );
+    _span_set_time_start( $cgi_app, 'setup' );
 }
 
 
