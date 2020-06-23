@@ -96,6 +96,11 @@ sub postrun {
 
 
 sub teardown {
+    my $cgi_app = shift;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}->close;
+    
+    return
 }
 
 
