@@ -36,8 +36,23 @@ sub import {
 sub init {
     my $cgi_app = shift;
     
-    _span_set_time_start( $cgi_app, 'request' );
-    _span_set_time_start( $cgi_app, 'setup' );
+    my $tracer = _init_opentracing_implementation($cgi_app);
+    $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
+
+    my $context = $tracer->extract_context;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST} =
+        $tracer->start_active_span( 'cgi_request', child_of => $context );
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
+        ->get_span->add_tags(
+            'component'             => 'CGI::Application',
+            'http.method'           => _cgi_get_http_method($cgi_app),
+            'http.status_code'      => '000',
+            'http.url'              => _cgi_get_http_url($cgi_app),
+        );
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP} =
+        $tracer->start_active_span( 'cgi_setup');
 }
 
 
