@@ -13,10 +13,11 @@ use OpenTracing::GlobalTracer;
 use Time::HiRes qw( gettimeofday );
 
 
+our @implementation_import_params;
 
 sub import {
     my $package = shift;
-    my @params  = @_;
+    @implementation_import_params = @_;
     
     my $caller  = caller;
     
