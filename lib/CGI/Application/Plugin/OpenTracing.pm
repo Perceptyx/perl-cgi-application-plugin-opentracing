@@ -292,4 +292,19 @@ sub get_opentracing_global_tracer {
 
 
 
+sub get_default_span_context {
+    my $cgi_app = shift;
+    
+    my $default_span_context =
+        $cgi_app->can('opentracing_default_span_context') ?
+            $cgi_app->opentracing_default_span_context( )
+            :
+            undef
+    ;
+    
+    return $default_span_context
+}
+
+
+
 1;
