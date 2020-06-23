@@ -60,8 +60,27 @@ sub init {
 sub prerun {
     my $cgi_app = shift;
     
+    my $baggage_items = _get_baggage_items($cgi_app);
     
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP}
+        ->get_span->add_baggage_items( %{$baggage_items} );
     
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP}->close;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
+        ->get_span->add_baggage_items( %{$baggage_items} );
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
+        ->get_span->add_tags(
+            'runmode'               => _get_current_runmode($cgi_app),
+            'runmethod'             => _cgi_get_run_method($cgi_app),
+        );
+    
+    my $tracer = $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER};
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_RUN} =
+        $tracer->start_active_span( 'cgi_run');
+    
+    return
 }
 
 
