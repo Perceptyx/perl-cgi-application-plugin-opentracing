@@ -307,4 +307,19 @@ sub get_default_span_context {
 
 
 
+sub get_baggage_items {
+    my $cgi_app = shift;
+    
+    my $baggage_items =
+        $cgi_app->can('opentracing_baggage_items') ?
+            $cgi_app->opentracing_baggage_items( )
+            :
+            undef # $ENV{OPENTRACING_IMPLEMENTATION}
+    ;
+    
+    return $baggage_items
+}
+
+
+
 1;
