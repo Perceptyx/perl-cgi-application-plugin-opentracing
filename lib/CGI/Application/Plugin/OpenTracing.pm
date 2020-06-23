@@ -96,10 +96,6 @@ sub postrun {
 
 
 sub teardown {
-    my $cgi_app = shift;
-    
-    _span_set_time_finish( $cgi_app, 'request' );
-    _span_scope_close( $cgi_app, 'request' );
 }
 
 
