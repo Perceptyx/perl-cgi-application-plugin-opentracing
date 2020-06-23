@@ -108,15 +108,19 @@ sub teardown {
 sub _init_opentracing_implementation {
     my $cgi_app = shift;
     
-    my @implementation_settings = $cgi_app->can('opentracing_implementation') ?
-        $cgi_app->opentracing_implementation( )
-        :
-        undef # $ENV{OPENTRACING_IMPLEMENTATION}
-    ;
+    my @implementation_settings = @implementation_import_params;
+    
+    my $default_span_context = get_default_span_context($cgi_app);
+    $cgi_app->{__PLUGINS}{OPENTRACING}{DEFAULT_CONTEXT} = $default_span_context;
+    
+    push @implementation_settings, (
+        default_span_context_args => $default_span_context,
+    ) if $default_span_context;
     
     OpenTracing::Implementation
-        ->bootstrap_global_tracer( @implementation_settings )
+        ->bootstrap_global_tracer( @implementation_settings );
     
+    return
 }
 
 
