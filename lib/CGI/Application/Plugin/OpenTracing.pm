@@ -60,14 +60,8 @@ sub init {
 sub prerun {
     my $cgi_app = shift;
     
-    _span_set_time_finish( $cgi_app, 'setup' );
     
-    _init_opentracing_implementation( $cgi_app );
-    _start_active_root_span( $cgi_app );
-    _handle_postmortum_setup_span( $cgi_app );
     
-    _span_set_time_start( $cgi_app, 'run' );
-    _start_active_run_span( $cgi_app ); # and `set_scope`
 }
 
 
