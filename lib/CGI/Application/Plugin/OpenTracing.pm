@@ -86,6 +86,11 @@ sub prerun {
 
 
 sub postrun {
+    my $cgi_app = shift;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_RUN}->close;
+    
+    return
 }
 
 
