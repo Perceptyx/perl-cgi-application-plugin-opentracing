@@ -286,7 +286,7 @@ sub _epoch_floatingpoint {
 
 
 
-sub _get_global_tracer {
+sub get_opentracing_global_tracer {
     OpenTracing::GlobalTracer->get_global_tracer()
 }
 
