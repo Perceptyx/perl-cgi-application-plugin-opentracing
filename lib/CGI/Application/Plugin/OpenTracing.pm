@@ -23,13 +23,15 @@ sub import {
     
     my $caller  = caller;
     
-    $caller->add_callback( init     => \&init     );
+    $caller->add_callback( init      => \&init      );
         
-    $caller->add_callback( prerun   => \&prerun   );
+    $caller->add_callback( prerun    => \&prerun    );
     
-    $caller->add_callback( postrun  => \&postrun  );
+    $caller->add_callback( postrun   => \&postrun   );
     
-    $caller->add_callback( teardown => \&teardown );
+    $caller->add_callback( load_tmpl => \&load_tmpl );
+    
+    $caller->add_callback( teardown  => \&teardown  );
     
 }
 
@@ -48,13 +50,10 @@ sub init {
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST} =
         $tracer->start_active_span( 'cgi_request', child_of => $context );
+        
+    my %request_tags = _get_request_tags($cgi_app);
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
-        ->get_span->add_tags(
-            'component'             => 'CGI::Application',
-            'http.method'           => _cgi_get_http_method($cgi_app),
-            'http.status_code'      => '000',
-            'http.url'              => _cgi_get_http_url($cgi_app),
-        );
+        ->get_span->add_tags(%request_tags);
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP} =
         $tracer->start_active_span( 'cgi_setup');
@@ -65,20 +64,19 @@ sub init {
 sub prerun {
     my $cgi_app = shift;
     
-    my $baggage_items = _get_baggage_items($cgi_app);
+    my %baggage_items = _get_baggage_items($cgi_app);
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP}
-        ->get_span->add_baggage_items( %{$baggage_items} );
+        ->get_span->add_baggage_items( %baggage_items );
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP}->close;
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
-        ->get_span->add_baggage_items( %{$baggage_items} );
+        ->get_span->add_baggage_items( %baggage_items );
+    
+    my %runmode_tags = _get_runmode_tags($cgi_app);
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
-        ->get_span->add_tags(
-            'runmode'               => _get_current_runmode($cgi_app),
-            'runmethod'             => _cgi_get_run_method($cgi_app),
-        );
+        ->get_span->add_tags(%runmode_tags);
     
     my $tracer = $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER};
     
@@ -95,6 +93,27 @@ sub postrun {
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_RUN}->close;
     
+    my $tracer = $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER};
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN} =
+        $tracer->start_active_span( 'cgi_teardown');
+    
+    
+    return
+}
+
+
+
+sub load_tmpl {
+    my $cgi_app = shift;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_LOAD_TMPL}->close;
+    
+    my $tracer = $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER};
+    
+#     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN} =
+#         $tracer->start_active_span( 'cgi_teardown');
+#     
     return
 }
 
@@ -103,6 +122,11 @@ sub postrun {
 sub teardown {
     my $cgi_app = shift;
     
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN}->close
+        if $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN};
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
+        ->get_span->add_tags('http.status_code' => "200",);
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}->close;
     
     return
@@ -115,17 +139,27 @@ sub _init_opentracing_implementation {
     
     my @implementation_settings = @implementation_import_params;
     
-    my $default_span_context = get_default_span_context($cgi_app);
-    $cgi_app->{__PLUGINS}{OPENTRACING}{DEFAULT_CONTEXT} = $default_span_context;
+    my @bootstrap_options = _get_bootstrap_options($cgi_app);
+    $cgi_app->{__PLUGINS}{OPENTRACING}{BOOTSTRAP_OPTIONS} =
+        [ @bootstrap_options ];
     
-    push @implementation_settings, (
-        default_span_context_args => $default_span_context,
-    ) if $default_span_context;
+    push @implementation_settings, @bootstrap_options
+        if @bootstrap_options;
     
-    OpenTracing::Implementation
+    my $bootstrapped_tracer = OpenTracing::Implementation
         ->bootstrap_global_tracer( @implementation_settings );
     
-    return
+    return $bootstrapped_tracer
+}
+
+
+
+sub _cgi_get_run_mode {
+    my $cgi_app = shift;
+    
+    my $run_mode = $cgi_app->get_current_runmode();
+    
+    return $run_mode
 }
 
 
@@ -167,32 +201,48 @@ sub get_opentracing_global_tracer {
 
 
 
-sub get_default_span_context {
+sub _get_request_tags {
     my $cgi_app = shift;
     
-    my $default_span_context =
-        $cgi_app->can('opentracing_default_span_context') ?
-            $cgi_app->opentracing_default_span_context( )
-            :
-            undef
-    ;
+    my %tags = (
+        'component'        => 'CGI::Application',
+        'http.method'      => _cgi_get_http_method($cgi_app),
+        'http.status_code' => '000',
+        'http.url'         => _cgi_get_http_url($cgi_app),
+    );
+    return %tags
+}
+
+sub _get_runmode_tags {
+    my $cgi_app = shift;
     
-    return $default_span_context
+    my %tags = (
+        'run_mode'               => _cgi_get_run_mode($cgi_app),
+        'run_method'             => _cgi_get_run_method($cgi_app),
+    );
+    return %tags
+}
+
+sub _get_bootstrap_options {
+    my $cgi_app = shift;
+    
+    return unless $cgi_app->can('opentracing_bootstrap_options');
+    
+    my @bootstrap_options = $cgi_app->opentracing_bootstrap_options( );
+    
+    return @bootstrap_options
 }
 
 
 
-sub get_baggage_items {
+sub _get_baggage_items {
     my $cgi_app = shift;
     
-    my $baggage_items =
-        $cgi_app->can('opentracing_baggage_items') ?
-            $cgi_app->opentracing_baggage_items( )
-            :
-            undef # $ENV{OPENTRACING_IMPLEMENTATION}
-    ;
+    return unless $cgi_app->can('opentracing_baggage_items');
     
-    return $baggage_items
+    my %baggage_items = $cgi_app->opentracing_baggage_items( );
+    
+    return %baggage_items
 }
 
 
