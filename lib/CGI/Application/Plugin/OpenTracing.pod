@@ -20,12 +20,10 @@ Inside your own CGI Application:
 Before Setup, initialize the Global Tracer with the following callback to add a
 list of implementation specific context parameters:
 
-    sub opentracing_default_span_context {
-        return {
-            service_name    => __PACKAGE__,
-            service_type    => 'web',
-            resource_name   => 'test.cgi',
-        }
+    sub opentracing_bootstrap_options {
+        service_name    => __PACKAGE__,
+        service_type    => 'web',
+        resource_name   => 'test.cgi',
     }
 
 After Setup, before Run, initialize the Global Tracer with the following
@@ -34,15 +32,9 @@ callback:
     # any key/values that will be carried over to child spans
     #
     sub opentracing_baggage_items {
-        my $webapp = shift;
-        my $run_mode = $webapp->get_current_runmode();
-        my $run_method = { $webapp->run_modes }->{ $run_mode };
-        
-        return {
-            run_mode        => $run_mode,
-            run_method      => $run_method,
-        }
-    }
+        client_id => '123XXX',
+        database  => 'secret_toys',
+   }
 
 
 
