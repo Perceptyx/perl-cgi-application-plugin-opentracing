@@ -1,5 +1,7 @@
+requires        'OpenTracing::Constants::CarrierFormat';
 requires        'OpenTracing::GlobalTracer';
 requires        'OpenTracing::Implementation';
+requires        'HTTP::Request';
 requires        'Time::HiRes';
 
 on 'develop' => sub {

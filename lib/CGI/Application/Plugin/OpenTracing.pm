@@ -9,7 +9,9 @@ use base 'Exporter';
 
 use OpenTracing::Implementation;
 use OpenTracing::GlobalTracer;
+use OpenTracing::Constants::CarrierFormat qw/:ALL/;
 
+use HTTP::Request;
 use Time::HiRes qw( gettimeofday );
 
 
@@ -38,8 +40,11 @@ sub init {
     
     my $tracer = _init_opentracing_implementation($cgi_app);
     $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
-
-    my $context = $tracer->extract_context;
+    
+    my $http_headers = HTTP::Request->new; # not implemented yet
+    my $context = $tracer->extract_context(
+        OPENTRACING_CARRIER_FORMAT_HTTP_HEADERS, $http_headers
+    );
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST} =
         $tracer->start_active_span( 'cgi_request', child_of => $context );
