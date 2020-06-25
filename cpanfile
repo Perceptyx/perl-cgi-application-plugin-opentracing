@@ -10,7 +10,9 @@ on 'develop' => sub {
 
 on 'test' => sub {
     requires    "Test::Most";
-};
+    requires    "Test::OpenTracing::Integration";
+    requires    "Test::MockObject";
+}
 
 # on 'examples' => sub {
 #     requires    'CGI::Application';
