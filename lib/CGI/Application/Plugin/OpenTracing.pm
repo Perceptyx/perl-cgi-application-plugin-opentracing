@@ -5,8 +5,6 @@ use warnings;
 
 our $VERSION = '0.01';
 
-use base 'Exporter';
-
 use OpenTracing::Implementation;
 use OpenTracing::GlobalTracer;
 use OpenTracing::Constants::CarrierFormat qw/:ALL/;
