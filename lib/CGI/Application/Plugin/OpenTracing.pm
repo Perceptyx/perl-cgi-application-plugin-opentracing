@@ -3,7 +3,7 @@ package CGI::Application::Plugin::OpenTracing;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = 'v0.100.0';
 
 use OpenTracing::Implementation;
 use OpenTracing::GlobalTracer;
