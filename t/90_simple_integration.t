@@ -20,6 +20,7 @@ global_tracer_cmp_easy(
             operation_name      => "cgi_request",
             level               => 0,
             baggage_items       => { bar => 2, foo => 1 },
+            context_item        => "this is bootstrapped span_context",
             tags                => {
                 'component'         => "CGI::Application",
                 'http.method'       => "PATCH",
@@ -33,22 +34,26 @@ global_tracer_cmp_easy(
             operation_name       => "cgi_setup",
             level                => 1,
             baggage_items        => { bar => 2, foo => 1 },
+            context_item        => "this is bootstrapped span_context",
         },
         {
             operation_name       => "cgi_run",
             level                => 1,
             baggage_items        => { bar => 2, foo => 1 },
+            context_item        => "this is bootstrapped span_context",
         },
         {
             operation_name       => "we_have_work_to_do",
             level                => 2,
             baggage_items        => { bar => 2, foo => 1 },
+            context_item        => "this is bootstrapped span_context",
             tags                 => { message => 'Hello World' },
         },
         {
             operation_name       => "cgi_teardown",
             level                => 1,
             baggage_items        => { bar => 2, foo => 1 },
+            context_item        => "this is bootstrapped span_context",
         },
     ], "Seems we created all spans as expected"
 );
@@ -83,7 +88,7 @@ use OpenTracing::GlobalTracer qw/$TRACER/;
 
 # set span context that is needed by the implementation
 sub opentracing_bootstrap_options {
-    test_message => "this is a test",
+    default_context_item => "this is bootstrapped span_context"
 }
 
 # set some span_context items that will be carried over across the app
