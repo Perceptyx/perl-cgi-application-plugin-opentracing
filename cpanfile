@@ -9,12 +9,13 @@ on 'develop' => sub {
 };
 
 on 'test' => sub {
+    requires    'CGI::Application';
     requires    "Test::Most";
     requires    "Test::OpenTracing::Integration", '>= v0.101.2';
     requires    "Test::MockObject";
 }
 
 # on 'examples' => sub {
-#     requires    'CGI::Application';
+#     
 #     requires    'CGI::Application::Server';
 # };
