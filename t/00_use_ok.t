@@ -30,6 +30,10 @@ BEGIN {
                 coderef => code( \&is_coderef ),
             },
             {
+                name    => 'load_tmpl',
+                coderef => code( \&is_coderef ),
+            },
+            {
                 name    => 'teardown',
                 coderef => code( \&is_coderef ),
             },
