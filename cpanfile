@@ -10,7 +10,7 @@ on 'develop' => sub {
 on 'test' => sub {
     requires    'CGI::Application';
     requires    "Test::Most";
-    requires    "Test::OpenTracing::Integration", '>= v0.102.0';
+    requires    "Test::OpenTracing::Integration", 'v0.102.0';
     requires    "Test::MockObject";
     requires    "Test::WWW::Mechanize::CGIApp";
 }
