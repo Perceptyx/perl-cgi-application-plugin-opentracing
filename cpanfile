@@ -1,4 +1,3 @@
-requires        'OpenTracing::Constants::CarrierFormat';
 requires        'OpenTracing::GlobalTracer';
 requires        'OpenTracing::Implementation';
 requires        'HTTP::Request';
@@ -11,8 +10,9 @@ on 'develop' => sub {
 on 'test' => sub {
     requires    'CGI::Application';
     requires    "Test::Most";
-    requires    "Test::OpenTracing::Integration", '>= v0.101.2';
+    requires    "Test::OpenTracing::Integration", 'v0.102.0';
     requires    "Test::MockObject";
+    requires    "Test::WWW::Mechanize::CGIApp";
 }
 
 # on 'examples' => sub {

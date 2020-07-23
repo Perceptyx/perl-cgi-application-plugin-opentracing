@@ -28,7 +28,6 @@ test:unit:
   script:
     # test fail since 2020-01-01
     - cpanm --notest Time::Zone
-    - cpanm VANHOESEL/Test-OpenTracing-Integration-v0.101.2.tar.gz
     - cpanm --verbose --installdeps .
     - OPENTRACING_INTERFACE=1 prove -MDevel::Cover -l -I lib -r
   coverage: /Totals+.+s(d+.d+?)$/

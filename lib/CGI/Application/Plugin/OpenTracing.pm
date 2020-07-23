@@ -3,13 +3,12 @@ package CGI::Application::Plugin::OpenTracing;
 use strict;
 use warnings;
 
-our $VERSION = 'v0.100.0';
+our $VERSION = 'v0.101.0';
 
 use OpenTracing::Implementation;
 use OpenTracing::GlobalTracer;
-use OpenTracing::Constants::CarrierFormat qw/:ALL/;
 
-use HTTP::Request;
+use HTTP::Headers;
 use Time::HiRes qw( gettimeofday );
 
 
@@ -41,10 +40,7 @@ sub init {
     my $tracer = _init_opentracing_implementation($cgi_app);
     $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
     
-    my $http_headers = HTTP::Request->new; # not implemented yet
-    my $context = $tracer->extract_context(
-        OPENTRACING_CARRIER_FORMAT_HTTP_HEADERS, $http_headers
-    );
+    my $context = $tracer->extract_context(_cgi_get_http_headers($cgi_app));
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST} =
         $tracer->start_active_span( 'cgi_request', child_of => $context );
@@ -182,13 +178,18 @@ sub _cgi_get_http_method {
 }
 
 
+sub _cgi_get_http_headers { # TODO: extract headers from CGI request
+    my $cgi_app = shift;
+    return HTTP::Headers->new();
+}
+
 
 sub _cgi_get_http_url {
     my $cgi_app = shift;
     
     my $query = $cgi_app->query();
     
-    return $query->url();
+    return $query->url(-path => 1, -query => 1);
 }
 
 
@@ -198,6 +199,10 @@ sub get_opentracing_global_tracer {
 }
 
 
+sub _param_formatter {
+    my ($self, $param, $vals) = @_;
+    return join ',', @$vals;
+}
 
 sub _get_request_tags {
     my $cgi_app = shift;
@@ -208,6 +213,15 @@ sub _get_request_tags {
         'http.status_code' => '000',
         'http.url'         => _cgi_get_http_url($cgi_app),
     );
+
+    my $format = $cgi_app->can('opentracing_format_query_params')
+        // \&_param_formatter;
+
+    my %params = $cgi_app->query->Vars();
+    while (my ($name, $value) = each %params) {
+        $tags{"http.query.$name"} = $cgi_app->$format($name, [ split /\0/, $value ]);
+    }
+
     return %tags
 }
 
