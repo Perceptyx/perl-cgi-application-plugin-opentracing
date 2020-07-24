@@ -5,10 +5,13 @@ use warnings;
 
 our $VERSION = 'v0.101.0';
 
+use syntax 'maybe';
+
 use OpenTracing::Implementation;
 use OpenTracing::GlobalTracer;
 
 use HTTP::Headers;
+use HTTP::Status;
 use Time::HiRes qw( gettimeofday );
 
 
@@ -119,8 +122,9 @@ sub teardown {
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN}->close
         if $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN};
     
+    my %http_status_tags = _get_http_status_tags($cgi_app);
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
-        ->get_span->add_tags('http.status_code' => "200",);
+        ->get_span->add_tags(%http_status_tags);
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}->close;
     
     return
@@ -210,7 +214,6 @@ sub _get_request_tags {
     my %tags = (
         'component'        => 'CGI::Application',
         'http.method'      => _cgi_get_http_method($cgi_app),
-        'http.status_code' => '000',
         'http.url'         => _cgi_get_http_url($cgi_app),
     );
 
@@ -234,6 +237,27 @@ sub _get_runmode_tags {
     );
     return %tags
 }
+
+sub _get_http_status_tags {
+    my $cgi_app = shift;
+    
+    my %headers = $cgi_app->header_props();
+    my $status = $headers{-status} or return (
+        'http.status_code'    => '200',
+    );
+    my $status_code = [ $status =~ /^\s*(\d{3})/ ]->[0];
+    my $status_mess = [ $status =~ /^\s*\d{3}\s*(.+)\s*$/ ]->[0];
+    
+    $status_mess = HTTP::Status::status_message($status_code)
+        unless defined $status_mess;
+    
+    my %tags = (
+        maybe 'http.status_code'    => $status_code,
+        maybe 'http.status_message' => $status_mess,
+    );
+    return %tags
+}
+
 
 sub _get_bootstrap_options {
     my $cgi_app = shift;
