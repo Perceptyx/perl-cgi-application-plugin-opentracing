@@ -1,6 +1,8 @@
 requires        'OpenTracing::GlobalTracer';
 requires        'OpenTracing::Implementation';
-requires        'HTTP::Request';
+requires        'HTTP::Headers';
+requires        'HTTP::Status';
+requires        "Syntax::Feature::Maybe";
 requires        'Time::HiRes';
 
 on 'develop' => sub {

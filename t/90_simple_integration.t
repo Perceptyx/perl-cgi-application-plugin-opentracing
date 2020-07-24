@@ -16,14 +16,15 @@ global_tracer_cmp_easy(
             baggage_items       => { bar => 2, foo => 1 },
             context_item        => "this is bootstrapped span_context",
             tags                => {
-                'component'         => "CGI::Application",
-                'http.method'       => "GET",
-                'http.status_code'  => "200",
-                'http.url'          => "https://test.tst/test.cgi?foo=bar;abc=1;abc=2",
-                'run_method'        => "some_method_start",
-                'run_mode'          => "start",
-                'http.query.foo'    => "bar",
-                'http.query.abc'    => "1;2",
+                'component'           => "CGI::Application",
+                'http.method'         => "GET",
+                'http.status_code'    => "418",
+                'http.status_message' => "I'm a teapot",
+                'http.url'            => "https://test.tst/test.cgi?foo=bar;abc=1;abc=2",
+                'run_method'          => "some_method_start",
+                'run_mode'            => "start",
+                'http.query.foo'      => "bar",
+                'http.query.abc'      => "1;2",
             },
         },
         {
@@ -87,9 +88,13 @@ sub run_modes {
 }
 
 sub some_method_start {
+    my $self = shift;
+    
     my $scope = $TRACER->start_active_span('we_have_work_to_do');
     
     $scope->get_span->add_tag( message => "Hello World" );
+    
+    $self->header_add( -status => '418' );
     
     $scope->close;
     
