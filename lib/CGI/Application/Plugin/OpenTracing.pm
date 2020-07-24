@@ -193,7 +193,7 @@ sub _cgi_get_http_url {
     
     my $query = $cgi_app->query();
     
-    return $query->url(-path => 1, -query => 1);
+    return $query->url(-path => 1);
 }
 
 

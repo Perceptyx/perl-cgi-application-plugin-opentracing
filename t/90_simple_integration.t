@@ -20,7 +20,7 @@ global_tracer_cmp_easy(
                 'http.method'         => "GET",
                 'http.status_code'    => "418",
                 'http.status_message' => "I'm a teapot",
-                'http.url'            => "https://test.tst/test.cgi?foo=bar;abc=1;abc=2",
+                'http.url'            => "https://test.tst/test.cgi",
                 'run_method'          => "some_method_start",
                 'run_mode'            => "start",
                 'http.query.foo'      => "bar",
