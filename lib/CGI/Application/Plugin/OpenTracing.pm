@@ -203,11 +203,6 @@ sub get_opentracing_global_tracer {
 }
 
 
-sub _param_formatter {
-    my ($self, $param, $vals) = @_;
-    return join ',', @$vals;
-}
-
 sub _get_request_tags {
     my $cgi_app = shift;
     
@@ -215,18 +210,40 @@ sub _get_request_tags {
         'component'        => 'CGI::Application',
         'http.method'      => _cgi_get_http_method($cgi_app),
         'http.url'         => _cgi_get_http_url($cgi_app),
+                               _get_query_params($cgi_app),
     );
-
-    my $format = $cgi_app->can('opentracing_format_query_params')
-        // \&_param_formatter;
-
-    my %params = $cgi_app->query->Vars();
-    while (my ($name, $value) = each %params) {
-        $tags{"http.query.$name"} = $cgi_app->$format($name, [ split /\0/, $value ]);
-    }
+    
 
     return %tags
 }
+
+sub _get_query_params {
+    my $cgi_app = shift;
+    
+    my %query_params = $cgi_app->query->Vars();
+    
+    my $processor = $cgi_app->can('opentracing_process_query_params')
+        // \&_internal_default_query_param_processor;
+    
+    my %processed_params = ();
+    
+    while ( my ($param_name, $param_value) = each %query_params ) {
+        my $processed_value = $cgi_app->$processor(
+            $param_name, [ split /\0/, $param_value ]
+        );
+        next unless defined $processed_value;
+        $processed_params{"http.query.$param_name"} = $processed_value
+    }
+    
+    return %processed_params
+}
+
+
+sub _internal_default_query_param_processor {
+    my ($self, $param, $vals) = @_;
+    return join ',', @$vals;
+}
+
 
 sub _get_runmode_tags {
     my $cgi_app = shift;
@@ -277,6 +294,7 @@ sub _get_baggage_items {
     return unless $cgi_app->can('opentracing_baggage_items');
     
     my %baggage_items = $cgi_app->opentracing_baggage_items( );
+    
     
     return %baggage_items
 }
