@@ -207,9 +207,9 @@ sub _get_request_tags {
     my $cgi_app = shift;
     
     my %tags = (
-        'component'        => 'CGI::Application',
-        'http.method'      => _cgi_get_http_method($cgi_app),
-        'http.url'         => _cgi_get_http_url($cgi_app),
+              'component'   => 'CGI::Application',
+        maybe 'http.method' => _cgi_get_http_method($cgi_app),
+        maybe 'http.url'    => _cgi_get_http_url($cgi_app),
                                _get_query_params($cgi_app),
     );
     
@@ -249,8 +249,8 @@ sub _get_runmode_tags {
     my $cgi_app = shift;
     
     my %tags = (
-        'run_mode'               => _cgi_get_run_mode($cgi_app),
-        'run_method'             => _cgi_get_run_method($cgi_app),
+        maybe 'run_mode'   => _cgi_get_run_mode($cgi_app),
+        maybe 'run_method' => _cgi_get_run_method($cgi_app),
     );
     return %tags
 }
