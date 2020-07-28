@@ -3,10 +3,12 @@ use Test::MockObject;
 use Test::OpenTracing::Integration;
 use Test::WWW::Mechanize::CGIApp;
 
+use utf8;
+
 my $mech = Test::WWW::Mechanize::CGIApp->new;
 $mech->app('MyTest::CGI::Application');
 
-$mech->get('https://test.tst/test.cgi?foo=bar;abc=1;abc=2');
+$mech->get('https://test.tst/test.cgi?foo=bar;abc=1;abc=2;skipp_me=1;password=secret');
 
 global_tracer_cmp_easy(
     [
@@ -25,6 +27,7 @@ global_tracer_cmp_easy(
                 'run_mode'            => "start",
                 'http.query.foo'      => "bar",
                 'http.query.abc'      => "1;2",
+                'http.query.password' => "* * * * *",
             },
         },
         {
@@ -77,8 +80,11 @@ sub opentracing_baggage_items {
     bar => 2
 }
 
-sub opentracing_format_query_params {
-   return join ';', @{ $_[2] };
+sub opentracing_process_query_params {
+    my ($self, $param_name, $param_value) = @_;
+    return if $param_name eq 'skipp_me';
+    return '* * * * *' if $param_name =~ /(password|pwd)/i;
+    return join ';', @$param_value;
 }
 
 sub run_modes {

@@ -139,7 +139,7 @@ as an array reference (even if the parameter only has a single value) as argumen
 
 For example, to encode values as JSON:
 
-  sub opentracing_format_query_params {
+  sub opentracing_process_query_params {
       my ($self, $name, $values_ref) = @_;
       return JSON::encode($values_ref);
   }
