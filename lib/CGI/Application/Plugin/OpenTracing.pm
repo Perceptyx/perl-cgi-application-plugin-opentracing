@@ -14,6 +14,10 @@ use HTTP::Headers;
 use HTTP::Status;
 use Time::HiRes qw( gettimeofday );
 
+use constant CGI_REQUEST  => 'cgi_request';
+use constant CGI_RUN      => 'cgi_run';
+use constant CGI_SETUP    => 'cgi_setup';
+use constant CGI_TEARDOWN => 'cgi_teardown';
 
 our @implementation_import_params;
 
@@ -22,15 +26,10 @@ sub import {
     @implementation_import_params = @_;
     
     my $caller  = caller;
-    
     $caller->add_callback( init      => \&init      );
-        
     $caller->add_callback( prerun    => \&prerun    );
-    
     $caller->add_callback( postrun   => \&postrun   );
-    
     $caller->add_callback( load_tmpl => \&load_tmpl );
-    
     $caller->add_callback( teardown  => \&teardown  );
     
 }
@@ -40,20 +39,17 @@ sub import {
 sub init {
     my $cgi_app = shift;
     
-    my $tracer = _init_opentracing_implementation($cgi_app);
-    $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
+    _plugin_init_opentracing_implementation( $cgi_app );
     
-    my $context = $tracer->extract_context(_cgi_get_http_headers($cgi_app));
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST} =
-        $tracer->start_active_span( 'cgi_request', child_of => $context );
-        
     my %request_tags = _get_request_tags($cgi_app);
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
-        ->get_span->add_tags(%request_tags);
+    my %query_params = _get_query_params($cgi_app);
+    my $context      = _tracer_extract_context( $cgi_app );
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP} =
-        $tracer->start_active_span( 'cgi_setup');
+    _plugin_start_active_span( $cgi_app, CGI_REQUEST, child_of => $context  );
+    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %request_tags         );
+    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %query_params         );
+    _plugin_start_active_span( $cgi_app, CGI_SETUP                          );
+    
 }
 
 
@@ -61,24 +57,14 @@ sub init {
 sub prerun {
     my $cgi_app = shift;
     
+    my %runmode_tags  = _get_runmode_tags($cgi_app);
     my %baggage_items = _get_baggage_items($cgi_app);
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP}
-        ->get_span->add_baggage_items( %baggage_items );
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_SETUP}->close;
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
-        ->get_span->add_baggage_items( %baggage_items );
-    
-    my %runmode_tags = _get_runmode_tags($cgi_app);
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
-        ->get_span->add_tags(%runmode_tags);
-    
-    my $tracer = $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER};
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_RUN} =
-        $tracer->start_active_span( 'cgi_run');
+    _plugin_add_baggage_items( $cgi_app, CGI_SETUP,   %baggage_items        );
+    _plugin_close_scope(       $cgi_app, CGI_SETUP                          );
+    _plugin_add_baggage_items( $cgi_app, CGI_REQUEST, %baggage_items        );
+    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %runmode_tags         );
+    _plugin_start_active_span( $cgi_app, CGI_RUN                            );
     
     return
 }
@@ -88,13 +74,8 @@ sub prerun {
 sub postrun {
     my $cgi_app = shift;
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_RUN}->close;
-    
-    my $tracer = $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER};
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN} =
-        $tracer->start_active_span( 'cgi_teardown');
-    
+    _plugin_close_scope(       $cgi_app, CGI_RUN                            );
+    _plugin_start_active_span( $cgi_app, CGI_TEARDOWN                       );
     
     return
 }
@@ -104,13 +85,8 @@ sub postrun {
 sub load_tmpl {
     my $cgi_app = shift;
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_LOAD_TMPL}->close;
+    _plugin_close_scope(       $cgi_app, CGI_TEARDOWN                       );
     
-    my $tracer = $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER};
-    
-#     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN} =
-#         $tracer->start_active_span( 'cgi_teardown');
-#     
     return
 }
 
@@ -119,13 +95,11 @@ sub load_tmpl {
 sub teardown {
     my $cgi_app = shift;
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN}->close
-        if $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_TEARDOWN};
-    
     my %http_status_tags = _get_http_status_tags($cgi_app);
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}
-        ->get_span->add_tags(%http_status_tags);
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{CGI_REQUEST}->close;
+    
+    _plugin_close_scope(       $cgi_app, CGI_TEARDOWN                       );
+    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %http_status_tags     );
+    _plugin_close_scope(       $cgi_app, CGI_REQUEST                        );
     
     return
 }
@@ -210,7 +184,6 @@ sub _get_request_tags {
               'component'   => 'CGI::Application',
         maybe 'http.method' => _cgi_get_http_method($cgi_app),
         maybe 'http.url'    => _cgi_get_http_url($cgi_app),
-                               _get_query_params($cgi_app),
     );
     
 
@@ -297,6 +270,78 @@ sub _get_baggage_items {
     
     
     return %baggage_items
+}
+
+
+
+sub _tracer_extract_context {
+    my $cgi_app = shift;
+    
+    my $http_headers = _cgi_get_http_headers($cgi_app);
+    my $tracer = _plugin_get_tracer( $cgi_app );
+    
+    return $tracer->extract_context($http_headers)
+}
+
+sub _plugin_get_tracer {
+    my $cgi_app = shift;
+    return $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER}
+}
+
+sub _plugin_init_opentracing_implementation {
+    my $cgi_app = shift;
+    
+    my $tracer = _init_opentracing_implementation($cgi_app);
+    $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
+}
+
+sub _plugin_start_active_span {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my %params         = @_;
+    my $scope_name     = uc $operation_name;
+    
+    my $scope =
+    _tracer_start_active_span( $cgi_app, $operation_name, %params );
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name} = $scope;
+}
+
+sub _tracer_start_active_span {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my %params         = @_;
+    
+    my $tracer = _plugin_get_tracer($cgi_app);
+    $tracer->start_active_span( $operation_name, %params );
+}
+
+sub _plugin_add_tags {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my %tags           = @_;
+    my $scope_name     = uc $operation_name;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
+        ->get_span->add_tags(%tags);
+}
+
+sub _plugin_add_baggage_items {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my %baggage_items  = @_;
+    my $scope_name     = uc $operation_name;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
+        ->get_span->add_baggage_items( %baggage_items );
+}
+
+sub _plugin_close_scope {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my $scope_name     = uc $operation_name;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}->close
 }
 
 
