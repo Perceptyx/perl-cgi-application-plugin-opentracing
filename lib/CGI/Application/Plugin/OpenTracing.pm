@@ -43,11 +43,13 @@ sub init {
     
     my %request_tags = _get_request_tags($cgi_app);
     my %query_params = _get_query_params($cgi_app);
+    my %form_data    = _get_form_data($cgi_app);
     my $context      = _tracer_extract_context( $cgi_app );
     
     _plugin_start_active_span( $cgi_app, CGI_REQUEST, child_of => $context  );
     _plugin_add_tags(          $cgi_app, CGI_REQUEST, %request_tags         );
     _plugin_add_tags(          $cgi_app, CGI_REQUEST, %query_params         );
+    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %form_data            );
     _plugin_start_active_span( $cgi_app, CGI_SETUP                          );
     
 }
@@ -192,31 +194,63 @@ sub _get_request_tags {
 
 sub _get_query_params {
     my $cgi_app = shift;
-    
-    my %query_params = $cgi_app->query->Vars();
-    
+
     my $processor = $cgi_app->can('opentracing_process_query_params')
         // \&_internal_default_query_param_processor;
-    
-    my %processed_params = ();
-    
-    while ( my ($param_name, $param_value) = each %query_params ) {
-        my $processed_value = $cgi_app->$processor(
-            $param_name, [ split /\0/, $param_value ]
-        );
-        next unless defined $processed_value;
-        $processed_params{"http.query.$param_name"} = $processed_value
-    }
-    
-    return %processed_params
-}
 
+    my %processed_params;
+
+    my $query = $cgi_app->query();
+    foreach my $param ($query->url_param()) {
+        my @values          = $query->url_param($param);
+        my $processed_value = $cgi_app->$processor($param, \@values);
+        next unless defined $processed_value;
+
+        $processed_params{"http.query.$param"} = $processed_value;
+    }
+    return %processed_params;
+}
 
 sub _internal_default_query_param_processor {
     my ($self, $param, $vals) = @_;
     return join ',', @$vals;
 }
 
+sub _get_form_data {
+    my $cgi_app = shift;
+    my $query = $cgi_app->query();
+    return unless _has_form_data($query);
+    
+    my $processor = $cgi_app->can('opentracing_process_form_data')
+        // \&_internal_default_query_param_processor;
+    
+    my %processed_params = ();
+    
+    my %params = $cgi_app->query->Vars();
+    while (my ($param_name, $param_value) = each %params) {
+        my $processed_value = $cgi_app->$processor(
+            $param_name, [ split /\0/, $param_value ]
+        );
+        next unless defined $processed_value;
+        $processed_params{"http.form.$param_name"} = $processed_value
+    }
+    
+    return %processed_params;
+}
+
+sub _has_form_data {
+    my ($query) = @_;
+    my $content_type = $query->content_type();
+    return   if not defined $content_type;
+    return 1 if $content_type =~ m{\Amultipart/form-data};
+    return 1 if $content_type =~ m{\Aapplication/x-www-form-urlencoded};
+    return;
+}
+
+sub _internal_default_form_data_processor {
+    my ($self, $param, $vals) = @_;
+    return join ',', @$vals;
+}
 
 sub _get_runmode_tags {
     my $cgi_app = shift;
