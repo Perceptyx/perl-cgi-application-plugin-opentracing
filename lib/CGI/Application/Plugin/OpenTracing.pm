@@ -52,6 +52,7 @@ sub init {
     _plugin_add_tags(          $cgi_app, CGI_REQUEST, %form_data            );
     _plugin_start_active_span( $cgi_app, CGI_SETUP                          );
     
+    return
 }
 
 
@@ -123,7 +124,7 @@ sub _init_opentracing_implementation {
     my $bootstrapped_tracer = OpenTracing::Implementation
         ->bootstrap_global_tracer( @implementation_settings );
     
-    return $bootstrapped_tracer
+    return
 }
 
 
@@ -174,9 +175,12 @@ sub _cgi_get_http_url {
 
 
 
+=for not_implemented
 sub get_opentracing_global_tracer {
     OpenTracing::GlobalTracer->get_global_tracer()
 }
+=cut
+
 
 
 sub _get_request_tags {
@@ -202,6 +206,7 @@ sub _get_query_params {
 
     my $query = $cgi_app->query();
     foreach my $param ($query->url_param()) {
+        next unless defined $param; # huh ???
         my @values          = $query->url_param($param);
         my $processed_value = $cgi_app->$processor($param, \@values);
         next unless defined $processed_value;
