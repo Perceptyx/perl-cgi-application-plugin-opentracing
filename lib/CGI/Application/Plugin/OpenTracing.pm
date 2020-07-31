@@ -10,6 +10,7 @@ use syntax 'maybe';
 use OpenTracing::Implementation;
 use OpenTracing::GlobalTracer;
 
+use Carp;
 use HTTP::Headers;
 use HTTP::Status;
 use Time::HiRes qw( gettimeofday );
@@ -20,11 +21,15 @@ use constant CGI_RUN       => 'cgi_application_run';
 use constant CGI_SETUP     => 'cgi_application_setup';
 use constant CGI_TEARDOWN  => 'cgi_application_teardown';
 
-our @implementation_import_params;
+our $implementation_import_name;
+our @implementation_import_opts;
 
 sub import {
     my $package = shift;
-    @implementation_import_params = @_;
+    
+    ( $implementation_import_name, @implementation_import_opts ) = @_;
+    $ENV{OPENTRACING_DEBUG} && carp "OpenTracing Implementation not defined during import\n"
+        unless defined $implementation_import_name;
     
     my $caller  = caller;
     $caller->add_callback( init      => \&init      );
@@ -110,20 +115,26 @@ sub teardown {
 
 
 
-sub _init_opentracing_implementation {
+sub _init_global_tracer {
     my $cgi_app = shift;
     
-    my @implementation_settings = @implementation_import_params;
-    
     my @bootstrap_options = _get_bootstrap_options($cgi_app);
-    $cgi_app->{__PLUGINS}{OPENTRACING}{BOOTSTRAP_OPTIONS} =
-        [ @bootstrap_options ];
     
-    push @implementation_settings, @bootstrap_options
-        if @bootstrap_options;
+    my $bootstrapped_tracer =
+        $implementation_import_name ?
+            OpenTracing::Implementation->bootstrap_tracer(
+                $implementation_import_name,
+                @implementation_import_opts,
+                @bootstrap_options,
+            )
+            :
+            OpenTracing::Implementation->bootstrap_default_tracer(
+                @implementation_import_opts,
+                @bootstrap_options,
+            )
+    ;
     
-    my $bootstrapped_tracer = OpenTracing::Implementation
-        ->bootstrap_global_tracer( @implementation_settings );
+    OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
     
     return
 }
@@ -331,7 +342,10 @@ sub _plugin_get_tracer {
 sub _plugin_init_opentracing_implementation {
     my $cgi_app = shift;
     
-    my $tracer = _init_opentracing_implementation($cgi_app);
+    _init_global_tracer($cgi_app);
+#       unless OpenTracing::GlobalTracer->is_registered;
+    my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
+    
     $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
 }
 
