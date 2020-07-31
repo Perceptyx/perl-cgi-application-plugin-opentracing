@@ -9,7 +9,7 @@ $mech->app('MyTest::CGI::Application');
 $mech->post('https://test.tst/test.cgi', content => { search => 'target', page_size => 10 });
 global_tracer_cmp_easy([
     {
-        operation_name => "cgi_request",
+        operation_name => "cgi_application_request",
         tags           => {
             'component'            => "CGI::Application",
             'http.method'          => "POST",
@@ -26,7 +26,7 @@ global_tracer_cmp_easy([
 $mech->post('https://test.tst/test.cgi?a=1&b=2', content => { b => 'B', c => 'C'  });
 global_tracer_cmp_easy([
     {
-        operation_name => "cgi_request",
+        operation_name => "cgi_application_request",
         tags => {
             'component'        => "CGI::Application",
             'http.method'      => "POST",
@@ -45,7 +45,7 @@ global_tracer_cmp_easy([
 $mech->patch('https://test.tst/test.cgi?x=1', content => {});
 global_tracer_cmp_easy([
     {
-        operation_name => "cgi_request",
+        operation_name => "cgi_application_request",
         tags           => {
             'component'        => "CGI::Application",
             'http.method'      => "PATCH",

@@ -13,7 +13,7 @@ $mech->get('https://test.tst/test.cgi?foo=bar;abc=1;abc=2;skipp_me=1;password=se
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => "cgi_request",
+            operation_name      => "cgi_application_request",
             level               => 0,
             baggage_items       => { bar => 2, foo => 1 },
             context_item        => "this is bootstrapped span_context",
@@ -31,28 +31,28 @@ global_tracer_cmp_easy(
             },
         },
         {
-            operation_name       => "cgi_setup",
-            level                => 1,
-            baggage_items        => { bar => 2, foo => 1 },
+            operation_name      => "cgi_application_setup",
+            level               => 1,
+            baggage_items       => { bar => 2, foo => 1 },
             context_item        => "this is bootstrapped span_context",
         },
         {
-            operation_name       => "cgi_run",
-            level                => 1,
-            baggage_items        => { bar => 2, foo => 1 },
+            operation_name      => "cgi_application_run",
+            level               => 1,
+            baggage_items       => { bar => 2, foo => 1 },
             context_item        => "this is bootstrapped span_context",
         },
         {
-            operation_name       => "we_have_work_to_do",
-            level                => 2,
-            baggage_items        => { bar => 2, foo => 1 },
+            operation_name      => "we_have_work_to_do",
+            level               => 2,
+            baggage_items       => { bar => 2, foo => 1 },
             context_item        => "this is bootstrapped span_context",
-            tags                 => { message => 'Hello World' },
+            tags                => { message => 'Hello World' },
         },
         {
-            operation_name       => "cgi_teardown",
-            level                => 1,
-            baggage_items        => { bar => 2, foo => 1 },
+            operation_name      => "cgi_application_teardown",
+            level               => 1,
+            baggage_items       => { bar => 2, foo => 1 },
             context_item        => "this is bootstrapped span_context",
         },
     ], "Seems we created all spans as expected"

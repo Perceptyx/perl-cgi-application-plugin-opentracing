@@ -14,10 +14,11 @@ use HTTP::Headers;
 use HTTP::Status;
 use Time::HiRes qw( gettimeofday );
 
-use constant CGI_REQUEST  => 'cgi_request';
-use constant CGI_RUN      => 'cgi_run';
-use constant CGI_SETUP    => 'cgi_setup';
-use constant CGI_TEARDOWN => 'cgi_teardown';
+use constant CGI_LOAD_TMPL => 'cgi_application_load_tmpl';
+use constant CGI_REQUEST   => 'cgi_application_request';
+use constant CGI_RUN       => 'cgi_application_run';
+use constant CGI_SETUP     => 'cgi_application_setup';
+use constant CGI_TEARDOWN  => 'cgi_application_teardown';
 
 our @implementation_import_params;
 
@@ -88,7 +89,7 @@ sub postrun {
 sub load_tmpl {
     my $cgi_app = shift;
     
-    _plugin_close_scope(       $cgi_app, CGI_TEARDOWN                       );
+    _plugin_close_scope(       $cgi_app, CGI_LOAD_TMPL                      );
     
     return
 }
