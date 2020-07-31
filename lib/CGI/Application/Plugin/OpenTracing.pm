@@ -10,20 +10,26 @@ use syntax 'maybe';
 use OpenTracing::Implementation;
 use OpenTracing::GlobalTracer;
 
+use Carp;
 use HTTP::Headers;
 use HTTP::Status;
 use Time::HiRes qw( gettimeofday );
 
-use constant CGI_REQUEST  => 'cgi_request';
-use constant CGI_RUN      => 'cgi_run';
-use constant CGI_SETUP    => 'cgi_setup';
-use constant CGI_TEARDOWN => 'cgi_teardown';
+use constant CGI_LOAD_TMPL => 'cgi_application_load_tmpl';
+use constant CGI_REQUEST   => 'cgi_application_request';
+use constant CGI_RUN       => 'cgi_application_run';
+use constant CGI_SETUP     => 'cgi_application_setup';
+use constant CGI_TEARDOWN  => 'cgi_application_teardown';
 
-our @implementation_import_params;
+our $implementation_import_name;
+our @implementation_import_opts;
 
 sub import {
     my $package = shift;
-    @implementation_import_params = @_;
+    
+    ( $implementation_import_name, @implementation_import_opts ) = @_;
+    $ENV{OPENTRACING_DEBUG} && carp "OpenTracing Implementation not defined during import\n"
+        unless defined $implementation_import_name;
     
     my $caller  = caller;
     $caller->add_callback( init      => \&init      );
@@ -52,6 +58,7 @@ sub init {
     _plugin_add_tags(          $cgi_app, CGI_REQUEST, %form_data            );
     _plugin_start_active_span( $cgi_app, CGI_SETUP                          );
     
+    return
 }
 
 
@@ -87,7 +94,7 @@ sub postrun {
 sub load_tmpl {
     my $cgi_app = shift;
     
-    _plugin_close_scope(       $cgi_app, CGI_TEARDOWN                       );
+    _plugin_close_scope(       $cgi_app, CGI_LOAD_TMPL                      );
     
     return
 }
@@ -108,22 +115,28 @@ sub teardown {
 
 
 
-sub _init_opentracing_implementation {
+sub _init_global_tracer {
     my $cgi_app = shift;
     
-    my @implementation_settings = @implementation_import_params;
-    
     my @bootstrap_options = _get_bootstrap_options($cgi_app);
-    $cgi_app->{__PLUGINS}{OPENTRACING}{BOOTSTRAP_OPTIONS} =
-        [ @bootstrap_options ];
     
-    push @implementation_settings, @bootstrap_options
-        if @bootstrap_options;
+    my $bootstrapped_tracer =
+        $implementation_import_name ?
+            OpenTracing::Implementation->bootstrap_tracer(
+                $implementation_import_name,
+                @implementation_import_opts,
+                @bootstrap_options,
+            )
+            :
+            OpenTracing::Implementation->bootstrap_default_tracer(
+                @implementation_import_opts,
+                @bootstrap_options,
+            )
+    ;
     
-    my $bootstrapped_tracer = OpenTracing::Implementation
-        ->bootstrap_global_tracer( @implementation_settings );
+    OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
     
-    return $bootstrapped_tracer
+    return
 }
 
 
@@ -174,9 +187,12 @@ sub _cgi_get_http_url {
 
 
 
+=for not_implemented
 sub get_opentracing_global_tracer {
     OpenTracing::GlobalTracer->get_global_tracer()
 }
+=cut
+
 
 
 sub _get_request_tags {
@@ -202,6 +218,7 @@ sub _get_query_params {
 
     my $query = $cgi_app->query();
     foreach my $param ($query->url_param()) {
+        next unless defined $param; # huh ???
         my @values          = $query->url_param($param);
         my $processed_value = $cgi_app->$processor($param, \@values);
         next unless defined $processed_value;
@@ -325,7 +342,10 @@ sub _plugin_get_tracer {
 sub _plugin_init_opentracing_implementation {
     my $cgi_app = shift;
     
-    my $tracer = _init_opentracing_implementation($cgi_app);
+    _init_global_tracer($cgi_app);
+#       unless OpenTracing::GlobalTracer->is_registered;
+    my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
+    
     $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
 }
 
