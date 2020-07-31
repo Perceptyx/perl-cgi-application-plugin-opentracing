@@ -10,7 +10,7 @@ use syntax 'maybe';
 use OpenTracing::Implementation;
 use OpenTracing::GlobalTracer;
 
-use Carp;
+use Carp qw( croak carp );
 use HTTP::Headers;
 use HTTP::Status;
 use Time::HiRes qw( gettimeofday );
@@ -23,6 +23,9 @@ use constant CGI_TEARDOWN  => 'cgi_application_teardown';
 
 our $implementation_import_name;
 our @implementation_import_opts;
+
+use constant FALLBACK_HASH_KEY => "\0-%:FALLBACK:%-\0";
+sub fallback (&) { return (FALLBACK_HASH_KEY, $_[0]) }
 
 sub import {
     my $package = shift;
@@ -38,6 +41,8 @@ sub import {
     $caller->add_callback( load_tmpl => \&load_tmpl );
     $caller->add_callback( teardown  => \&teardown  );
     
+    no strict 'refs';
+    *{ $caller . '::fallback' } = \&fallback;
 }
 
 
@@ -208,11 +213,47 @@ sub _get_request_tags {
     return %tags
 }
 
+sub _gen_tag_processor {
+    my $cgi_app = shift;
+
+    my $join_str = do {
+        no strict 'refs';
+        ${ ref($cgi_app) . '::OPENTRACING_TAG_JOIN_CHAR' };
+    } // ',';
+    my $joiner = sub { join $join_str, @_ };
+
+    my @specs = map { { $_->() } } grep { defined } @_;
+    my ($fallback) = map { delete $_->{ (FALLBACK_HASH_KEY) } // () } @specs;
+    $fallback ||= $joiner;
+
+    return sub {
+        my ($cgi_app, $name, $values) = @_;
+        
+        my $processor = $fallback;
+        foreach my $spec (@specs) {
+            $processor = $spec->{$name} if exists $spec->{$name};
+        }
+
+        return            if not defined $processor;
+        return $processor if not ref $processor;
+
+        if (ref $processor eq 'CODE') {
+            my $processed = $processor->(@$values);
+            $processed = $joiner->(@$processed) if ref $processed eq 'ARRAY';
+            return $processed;
+        }
+
+        croak "Invalid processor for param `$name`: ", ref $processor;
+    };
+}
+
 sub _get_query_params {
     my $cgi_app = shift;
 
-    my $processor = $cgi_app->can('opentracing_process_query_params')
-        // \&_internal_default_query_param_processor;
+    my $processor = _gen_tag_processor($cgi_app,
+        $cgi_app->can('opentracing_process_tags_query_params'),
+        $cgi_app->can('opentracing_process_tags'),
+    );
 
     my %processed_params;
 
@@ -228,18 +269,15 @@ sub _get_query_params {
     return %processed_params;
 }
 
-sub _internal_default_query_param_processor {
-    my ($self, $param, $vals) = @_;
-    return join ',', @$vals;
-}
-
 sub _get_form_data {
     my $cgi_app = shift;
     my $query = $cgi_app->query();
     return unless _has_form_data($query);
     
-    my $processor = $cgi_app->can('opentracing_process_form_data')
-        // \&_internal_default_query_param_processor;
+    my $processor = _gen_tag_processor($cgi_app,
+        $cgi_app->can('opentracing_process_tags_form_fields'),
+        $cgi_app->can('opentracing_process_tags'),
+    );
     
     my %processed_params = ();
     
@@ -262,11 +300,6 @@ sub _has_form_data {
     return 1 if $content_type =~ m{\Amultipart/form-data};
     return 1 if $content_type =~ m{\Aapplication/x-www-form-urlencoded};
     return;
-}
-
-sub _internal_default_form_data_processor {
-    my ($self, $param, $vals) = @_;
-    return join ',', @$vals;
 }
 
 sub _get_runmode_tags {
@@ -375,7 +408,7 @@ sub _plugin_add_tags {
     my $operation_name = shift;
     my %tags           = @_;
     my $scope_name     = uc $operation_name;
-    
+
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
         ->get_span->add_tags(%tags);
 }

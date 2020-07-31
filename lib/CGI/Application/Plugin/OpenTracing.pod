@@ -112,6 +112,61 @@ and later per subroutine:
 Lastly, use L<OpenTracing::Wrap>, to automagically wrap scopes and traces around
 a list of mentioned (fully qualified) subroutine names.
 
+=head1 FORMATTING TAGS
+
+Query parameters and form-data fields will be added to the request span as tags.
+While it's possible for a parameter to appear multiple times and therefore have
+multiple values, span tags need to be simple scalars. By default, parameters
+with multiple values will be joined with a comma (or the value of
+C<$OPENTRACING_TAG_JOIN_CHAR> package variable inside your CGI application).
+
+It's possible to customise the formatting per parameter using three callbacks:
+
+=over 4
+
+=item * opentracing_process_tags_query_params
+
+=item * opentracing_process_tags_form_fields
+
+=item * opentracing_process_tags
+
+=back
+
+Any of them can return a list of key-value pairs, to determine the formatting
+of query parameters, form fields or any of them, accordingly. A special
+C<fallback> entry can also be used, to specify formatting for tags with no named
+matches. This means a fallback specified in C<opentracing_process_tags_query_params>
+will be used when neither C<opentracing_process_tags_query_params>
+or C<opentracing_process_tags> has an entry for a given query parameter.
+The same logic applies to form fields and C<opentracing_process_tags_form_fields>.
+
+The keys returned by these callbacks are plain parameter/field names, while
+the values can be one of:
+
+=over 4
+
+=item * a scalar - this will be used as the tag, regardless of parameter values
+
+=item * undef - the parameter will be skipped and won't produce a tag at all
+
+=item * a coderef - the coderef will be called on all the values and its return
+value will be used as the tag, if it returns an arrayref, the default join logic
+will be applied to its values
+
+=back
+
+Example callback:
+
+  sub opentracing_process_tags {
+      password => undef,                      # skip completely
+      location => 'REDACTED',                 # replace with a constant string
+      ids      => sub { join ':', uniq @_ },  # call the coderef on all values
+      fallback { join '-', @_ },              # join all remaining with a dash
+  }
+
+Note that C<fallback> is not a key but a special subroutine exported
+by the plugin.
+
 =head1 CAVEATS
 
 Probably a few...
@@ -124,27 +179,6 @@ even try to add deeper level of instrumentation during 'setup'. Those will use
 the default L<OpenTracing::Implementation::NoOp> which ... does nothing.
 
 Traces will get lost, when the rootspan is not closed properly.
-
-=head2 Multi-valued query parameters
-
-Query parameters will be automatically added to the C<cgi_request> span
-as tags with a C<http.query.> prefix. Since span tags cannot contain
-references, query parameters appearing multiple times will be concatenated
-with a comma.
-
-You can use a different format by defining an C<opentracing_format_query_params>
-method in your CGI Application. If present, this method will be called whenever
-a query parameter is assigned to a tag, with the parameter name and all values
-as an array reference (even if the parameter only has a single value) as arguments.
-
-For example, to encode values as JSON:
-
-  sub opentracing_process_query_params {
-      my ($self, $name, $values_ref) = @_;
-      return JSON::encode($values_ref);
-  }
-
-
 
 =head1 AUTHOR
 
