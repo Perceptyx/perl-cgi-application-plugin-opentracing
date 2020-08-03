@@ -61,9 +61,9 @@ my @tests = (
         name  => 'query with fallback',
         specs => {
             query => sub {
-                token        => '###',
-                    location => undef,
-                    sub { "[@_]" },;
+                token    => '###',
+                location => undef,
+                sub { "[@_]" },
             },
         },
         cases => [
@@ -97,7 +97,7 @@ my @tests = (
         specs => {
             query => sub {
                 token => '###',
-                    sub { undef },;
+                sub { undef },
             },
         },
         cases => [
