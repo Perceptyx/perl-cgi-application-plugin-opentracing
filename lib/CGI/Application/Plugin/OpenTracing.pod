@@ -117,8 +117,8 @@ a list of mentioned (fully qualified) subroutine names.
 Query parameters and form-data fields will be added to the request span as tags.
 While it's possible for a parameter to appear multiple times and therefore have
 multiple values, span tags need to be simple scalars. By default, parameters
-with multiple values will be joined with a comma (or the value of
-C<$OPENTRACING_TAG_JOIN_CHAR> package variable inside your CGI application).
+with multiple values will be joined with the value of
+C<$CGI::Application::Plugin::TAG_JOIN_CHAR> package variable (comma by default).
 
 It's possible to customise the formatting per parameter using three callbacks:
 
@@ -133,15 +133,43 @@ It's possible to customise the formatting per parameter using three callbacks:
 =back
 
 Any of them can return a list of key-value pairs, to determine the formatting
-of query parameters, form fields or any of them, accordingly. A special
-C<fallback> entry can also be used, to specify formatting for tags with no named
-matches. This means a fallback specified in C<opentracing_process_tags_query_params>
+of query parameters, form fields or any of them, accordingly.
+
+A special fallback entry can also be specified as an odd element at the end of
+the list. That entry will be used as the formatter for tags with no named matches.
+This means a fallback specified in C<opentracing_process_tags_query_params>
 will be used when neither C<opentracing_process_tags_query_params>
 or C<opentracing_process_tags> has an entry for a given query parameter.
 The same logic applies to form fields and C<opentracing_process_tags_form_fields>.
 
-The keys returned by these callbacks are plain parameter/field names, while
-the values can be one of:
+The keys returned by these callbacks are one of:
+
+=over 4
+
+=item * a scalar - match the parameter name exactly
+
+=item * arrayref - match the parameter name exactly to any of the entries
+
+=item * regex - match the parameter to the expression
+
+=back
+
+The following specifications are functionally identical:
+
+  sub opentracing_process_tags {
+      pwd      => undef,
+      password => undef,
+  }
+
+  sub opentracing_process_tags {
+      ['pwd', 'password'] => undef,
+  }
+
+  sub opentracing_process_tags {
+      qr/\A(?:pwd|password)\z/ => undef,
+  }
+
+The values can be one of:
 
 =over 4
 
@@ -161,11 +189,8 @@ Example callback:
       password => undef,                      # skip completely
       location => 'REDACTED',                 # replace with a constant string
       ids      => sub { join ':', uniq @_ },  # call the coderef on all values
-      fallback { join '-', @_ },              # join all remaining with a dash
+      sub { join '-', @_ },                   # join all remaining with a dash
   }
-
-Note that C<fallback> is not a key but a special subroutine exported
-by the plugin.
 
 =head1 CAVEATS
 

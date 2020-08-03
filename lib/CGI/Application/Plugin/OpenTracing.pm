@@ -24,8 +24,7 @@ use constant CGI_TEARDOWN  => 'cgi_application_teardown';
 our $implementation_import_name;
 our @implementation_import_opts;
 
-use constant FALLBACK_HASH_KEY => "\0-%:FALLBACK:%-\0";
-sub fallback (&) { return (FALLBACK_HASH_KEY, $_[0]) }
+our $TAG_JOIN_CHAR = ',';
 
 sub import {
     my $package = shift;
@@ -216,14 +215,16 @@ sub _get_request_tags {
 sub _gen_tag_processor {
     my $cgi_app = shift;
 
-    my $join_str = do {
-        no strict 'refs';
-        ${ ref($cgi_app) . '::OPENTRACING_TAG_JOIN_CHAR' };
-    } // ',';
-    my $joiner = sub { join $join_str, @_ };
+    my $joiner = sub { join $TAG_JOIN_CHAR, @_ };
 
-    my @specs = map { { $_->() } } grep { defined } @_;
-    my ($fallback) = map { delete $_->{ (FALLBACK_HASH_KEY) } // () } @specs;
+    my (@specs, $fallback);
+    foreach my $spec_gen (@_) {
+        next if not defined $spec_gen;
+
+        my ($spec, $spec_fallback) = _gen_spec($spec_gen->());
+        $fallback ||= $spec_fallback;
+        push @specs, $spec;
+    }
     $fallback ||= $joiner;
 
     return sub {
@@ -231,7 +232,8 @@ sub _gen_tag_processor {
         
         my $processor = $fallback;
         foreach my $spec (@specs) {
-            $processor = $spec->{$name} if exists $spec->{$name};
+            my ($matched, $spec_processor) = $spec->($name);
+            $processor = $spec_processor if $matched;
         }
 
         return            if not defined $processor;
@@ -245,6 +247,39 @@ sub _gen_tag_processor {
 
         croak "Invalid processor for param `$name`: ", ref $processor;
     };
+}
+
+sub _gen_spec {
+    my @def = @_;
+
+    my $fallback;
+    $fallback = pop @def if @def % 2 != 0;
+
+    my (%direct_match, @regex);
+    while (my ($cond, $processor) = splice @def, 0, 2) {
+        if (ref $cond eq 'Regexp') {
+            push @regex, [ $cond => $processor ];
+        }
+        else {
+            foreach my $name (ref $cond eq 'ARRAY' ? @$cond : $cond) {
+                $direct_match{$name} = $processor;
+            }
+        }
+    }
+    my $spec = sub {
+        my ($name) = @_;
+
+        # return match state separately to differentiate from undef processors
+        return (1, $direct_match{$name}) if exists $direct_match{$name};
+
+        foreach (@regex) {
+            my ($re, $processor) = @$_;
+            return (1, $processor) if $name =~ $re;
+        }
+        return;
+    };
+
+    return ($spec, $fallback);
 }
 
 sub _get_query_params {

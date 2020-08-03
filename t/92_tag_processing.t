@@ -4,11 +4,8 @@ use Test::MockObject;
 use Test::OpenTracing::Integration;
 use Test::WWW::Mechanize::CGIApp;
 
-BEGIN {    # import without calling import, to use in test definitions
-    *fallback = \&CGI::Application::Plugin::OpenTracing::fallback;
-}
-
 {
+
     package MyTest::App;
     use base 'CGI::Application';
 
@@ -36,10 +33,10 @@ my @tests = (
         },
         cases => [
             {
-                name    => 'basic query',
-                method  => 'GET',
-                query   => 'token=1234&location=UK&bar=XbarX',
-                tags    => {
+                name   => 'basic query',
+                method => 'GET',
+                query  => 'token=1234&location=UK&bar=XbarX',
+                tags   => {
                     'run_method'       => 'rm_start',
                     'run_mode'         => 'start',
                     'http.query.token' => '###',
@@ -64,17 +61,17 @@ my @tests = (
         name  => 'query with fallback',
         specs => {
             query => sub {
-                token    => '###',
-                location => undef,
-                fallback { "[@_]" },
+                token        => '###',
+                    location => undef,
+                    sub { "[@_]" },;
             },
         },
         cases => [
             {
-                name    => 'basic query',
-                method  => 'GET',
-                query   => 'token=1234&location=UK&bar=XbarX',
-                tags    => {
+                name   => 'basic query',
+                method => 'GET',
+                query  => 'token=1234&location=UK&bar=XbarX',
+                tags   => {
                     'run_method'       => 'rm_start',
                     'run_mode'         => 'start',
                     'http.query.token' => '###',
@@ -99,16 +96,16 @@ my @tests = (
         name  => 'undef fallback',
         specs => {
             query => sub {
-                token    => '###',
-                fallback { undef },
+                token => '###',
+                    sub { undef },;
             },
         },
         cases => [
             {
-                name    => 'all non-specified query params removed',
-                method  => 'GET',
-                query   => 'token=1234&location=UK&bar=XbarX',
-                tags    => {
+                name   => 'all non-specified query params removed',
+                method => 'GET',
+                query  => 'token=1234&location=UK&bar=XbarX',
+                tags   => {
                     'run_method'       => 'rm_start',
                     'run_mode'         => 'start',
                     'http.query.token' => '###',
@@ -128,8 +125,12 @@ my @tests = (
             {
                 name   => 'basic form',
                 method => 'POST',
-                form   => { password => 'hunter2', location => 'UK', bar => 'XbarX' },
-                tags   => {
+                form   => {
+                    password => 'hunter2',
+                    location => 'UK',
+                    bar      => 'XbarX'
+                },
+                tags => {
                     'run_method'         => 'rm_start',
                     'run_mode'           => 'start',
                     'http.form.password' => '******',
@@ -137,10 +138,10 @@ my @tests = (
                 },
             },
             {
-                name    => 'query with names defined for form',
-                method  => 'GET',
-                query   => 'password=hunter2&location=UK&bar=XbarX',
-                tags    => {
+                name   => 'query with names defined for form',
+                method => 'GET',
+                query  => 'password=hunter2&location=UK&bar=XbarX',
+                tags   => {
                     'run_method'          => 'rm_start',
                     'run_mode'            => 'start',
                     'http.query.location' => 'UK',
@@ -156,15 +157,20 @@ my @tests = (
             form => sub {
                 password => '******',
                 location => undef,
-                fallback { "[@_]" },
+                sub { "[@_]" },
             },
         },
         cases => [
             {
                 name   => 'basic form',
                 method => 'POST',
-                form   => { password => 'hunter2', location => 'UK', bar => 'XbarX', foo => 'XfooX' },
-                tags   => {
+                form   => {
+                    password => 'hunter2',
+                    location => 'UK',
+                    bar      => 'XbarX',
+                    foo      => 'XfooX'
+                },
+                tags => {
                     'run_method'         => 'rm_start',
                     'run_mode'           => 'start',
                     'http.form.password' => '******',
@@ -173,10 +179,10 @@ my @tests = (
                 },
             },
             {
-                name    => 'fallback does not work on query params',
-                method  => 'GET',
-                query   => 'password=hunter2&location=UK&bar=XbarX&foo=XfooX',
-                tags    => {
+                name   => 'fallback does not work on query params',
+                method => 'GET',
+                query  => 'password=hunter2&location=UK&bar=XbarX&foo=XfooX',
+                tags   => {
                     'run_method'          => 'rm_start',
                     'run_mode'            => 'start',
                     'http.query.location' => 'UK',
@@ -191,19 +197,19 @@ my @tests = (
         name  => 'query and form',
         specs => {
             query => sub {
-                id => sub { join ';', @_ },
+                id => sub { join ';', @_ },;
             },
-            form  => sub {
+            form => sub {
                 password => undef,
                 location => 'redacted',
             },
         },
         cases => [
             {
-                name    => 'get with query and form defined',
-                method  => 'GET',
-                query   => 'password=leaked&id=1&id=2',
-                tags    => {
+                name   => 'get with query and form defined',
+                method => 'GET',
+                query  => 'password=leaked&id=1&id=2',
+                tags   => {
                     'run_method'          => 'rm_start',
                     'run_mode'            => 'start',
                     'http.query.id'       => '1;2',
@@ -211,11 +217,11 @@ my @tests = (
                 },
             },
             {
-                name    => 'post with query and form defined',
-                method  => 'POST',
-                query   => 'password=leaked&id=1&id=2',
-                form    => { location => 'whatever', password => '123' },
-                tags    => {
+                name   => 'post with query and form defined',
+                method => 'POST',
+                query  => 'password=leaked&id=1&id=2',
+                form   => { location => 'whatever', password => '123' },
+                tags   => {
                     'run_method'          => 'rm_start',
                     'run_mode'            => 'start',
                     'http.query.id'       => '1;2',
@@ -230,11 +236,11 @@ my @tests = (
         specs => {
             query => sub {
                 id => sub { join ';', @_ },
-                fallback { "[@_]" },
+                sub { "[@_]" },
             },
-            form  => sub {
+            form => sub {
                 location => 'redacted',
-                fallback { "[@_]" },
+                sub { "[@_]" },
             },
             generic => sub {
                 password => undef,
@@ -242,25 +248,25 @@ my @tests = (
         },
         cases => [
             {
-                name    => 'get with query and form defined',
-                method  => 'GET',
-                query   => 'password=leaked&id=1&id=2',
-                tags    => {
-                    'run_method'          => 'rm_start',
-                    'run_mode'            => 'start',
-                    'http.query.id'       => '1;2',
+                name   => 'get with query and form defined',
+                method => 'GET',
+                query  => 'password=leaked&id=1&id=2',
+                tags   => {
+                    'run_method'    => 'rm_start',
+                    'run_mode'      => 'start',
+                    'http.query.id' => '1;2',
                 },
             },
             {
-                name    => 'post with query and form defined',
-                method  => 'POST',
-                query   => 'password=leaked&id=1&id=2',
-                form    => { location => 'whatever', password => '123' },
-                tags    => {
-                    'run_method'          => 'rm_start',
-                    'run_mode'            => 'start',
-                    'http.query.id'       => '1;2',
-                    'http.form.location'  => 'redacted',
+                name   => 'post with query and form defined',
+                method => 'POST',
+                query  => 'password=leaked&id=1&id=2',
+                form   => { location => 'whatever', password => '123' },
+                tags   => {
+                    'run_method'         => 'rm_start',
+                    'run_mode'           => 'start',
+                    'http.query.id'      => '1;2',
+                    'http.form.location' => 'redacted',
                 },
             },
         ],
@@ -270,28 +276,28 @@ my @tests = (
         specs => {
             query => sub {
                 id => sub { join ';', @_ },
-                fallback { "[@_]" },
+                sub { "[@_]" },
             },
-            form  => sub {
+            form => sub {
                 location => 'redacted',
             },
             generic => sub {
-                fallback { "{-@_-}" },
+                sub { "{-@_-}" },
             },
         },
         cases => [
             {
-                name    => 'fall-through to generic fallback',
-                method  => 'POST',
-                query   => 'id=1&id=2&token=11',
-                form    => { location => 'whatever', token => '22' },
-                tags    => {
-                    'run_method'          => 'rm_start',
-                    'run_mode'            => 'start',
-                    'http.query.id'       => '1;2',
-                    'http.query.token'     => '[11]',
-                    'http.form.location'  => 'redacted',
-                    'http.form.token'     => '{-22-}',
+                name   => 'fall-through to generic fallback',
+                method => 'POST',
+                query  => 'id=1&id=2&token=11',
+                form   => { location => 'whatever', token => '22' },
+                tags   => {
+                    'run_method'         => 'rm_start',
+                    'run_mode'           => 'start',
+                    'http.query.id'      => '1;2',
+                    'http.query.token'   => '[11]',
+                    'http.form.location' => 'redacted',
+                    'http.form.token'    => '{-22-}',
                 },
             },
         ],
@@ -302,27 +308,27 @@ my @tests = (
             query => sub {
                 id => sub { join ';', @_ },
             },
-            form  => sub {
+            form => sub {
                 location => 'redacted',
-                fallback { "[@_]" },
+                sub { "[@_]" },
             },
             generic => sub {
-                fallback { "{-@_-}" },
+                sub { "{-@_-}" },
             },
         },
         cases => [
             {
-                name    => 'fall-through to generic fallback',
-                method  => 'POST',
-                query   => 'id=1&id=2&token=11',
-                form    => { location => 'whatever', token => '22' },
-                tags    => {
-                    'run_method'          => 'rm_start',
-                    'run_mode'            => 'start',
-                    'http.query.id'       => '1;2',
-                    'http.query.token'     => '{-11-}',
-                    'http.form.location'  => 'redacted',
-                    'http.form.token'     => '[22]',
+                name   => 'fall-through to generic fallback',
+                method => 'POST',
+                query  => 'id=1&id=2&token=11',
+                form   => { location => 'whatever', token => '22' },
+                tags   => {
+                    'run_method'         => 'rm_start',
+                    'run_mode'           => 'start',
+                    'http.query.id'      => '1;2',
+                    'http.query.token'   => '{-11-}',
+                    'http.form.location' => 'redacted',
+                    'http.form.token'    => '[22]',
                 },
             },
         ],
@@ -337,14 +343,58 @@ my @tests = (
         },
         cases => [
             {
-                name    => 'tags joined with the package var',
-                method  => 'GET',
-                query   => 'id=1&id=2&id=3&stuff=x&stuff=y',
-                tags    => {
-                    'run_method'          => 'rm_start',
-                    'run_mode'            => 'start',
-                    'http.query.id'       => '1+2+3',
-                    'http.query.stuff'    => '_x+_y',
+                name   => 'tags joined with the package var',
+                method => 'GET',
+                query  => 'id=1&id=2&id=3&stuff=x&stuff=y',
+                tags   => {
+                    'run_method'       => 'rm_start',
+                    'run_mode'         => 'start',
+                    'http.query.id'    => '1+2+3',
+                    'http.query.stuff' => '_x+_y',
+                },
+            },
+        ],
+    },
+    {
+        name  => 'regex matching',
+        specs => {
+            query => sub {
+                qr/id|num/ => sub { join ':', @_ },
+            },
+        },
+        cases => [
+            {
+                name   => 'basic query',
+                method => 'GET',
+                query  => 'id=1&id=2&number=3&number=4&num=2&num=1',
+                tags   => {
+                    'run_method'        => 'rm_start',
+                    'run_mode'          => 'start',
+                    'http.query.id'     => '1:2',
+                    'http.query.num'    => '2:1',
+                    'http.query.number' => '3:4',
+                },
+            },
+        ],
+    },
+    {
+        name  => 'same formatter for multiple params',
+        specs => {
+            query => sub {
+                [ 'id', 'num' ] => sub { join ':', @_ },
+            },
+        },
+        cases => [
+            {
+                name   => 'basic query',
+                method => 'GET',
+                query  => 'id=1&id=2&number=3&number=4&num=2&num=1',
+                tags   => {
+                    'run_method'        => 'rm_start',
+                    'run_mode'          => 'start',
+                    'http.query.id'     => '1:2',
+                    'http.query.num'    => '2:1',
+                    'http.query.number' => '3,4',
                 },
             },
         ],
@@ -357,11 +407,12 @@ foreach (@tests) {
 
     subtest $test_name => sub {
         plan tests => scalar @$cases;
-        
+
         no warnings 'once';
 
         my $spec_query = $specs->{query};
-        local *MyTest::App::opentracing_process_tags_query_params = $spec_query
+        local *MyTest::App::opentracing_process_tags_query_params
+            = $spec_query
             if defined $spec_query;
 
         my $spec_form = $specs->{form};
@@ -373,31 +424,34 @@ foreach (@tests) {
             if defined $spec_all;
 
         my $spec_var = $specs->{join_char};
-        local $MyTest::App::OPENTRACING_TAG_JOIN_CHAR = $spec_var
+        local $CGI::Application::Plugin::OpenTracing::TAG_JOIN_CHAR
+            = $spec_var
             if defined $spec_var;
-        
+
         my $mech = Test::WWW::Mechanize::CGIApp->new(app => 'MyTest::App');
         foreach (@$cases) {
             my ($case_name, $method, $query, $form, $exp_tags)
                 = @$_{qw[ name method query form tags ]};
-            
-            
+
             my $url      = 'https://test.tst/test.cgi';
             my $full_url = $url;
             $full_url .= "?$query" if defined $query;
             $method = lc $method;
             $mech->$method($full_url, maybe content => $form);
 
-            my $exp_spans = [{
-                operation_name => CGI::Application::Plugin::OpenTracing::CGI_REQUEST,
-                tags => {
-                    'component'        => "CGI::Application",
-                    'http.method'      => uc $method,
-                    'http.status_code' => "200",
-                    'http.url'         => $url,
-                    %$exp_tags,
-                },
-            }];
+            my $exp_spans = [
+                {
+                    operation_name =>
+                        CGI::Application::Plugin::OpenTracing::CGI_REQUEST,
+                    tags => {
+                        'component'        => "CGI::Application",
+                        'http.method'      => uc $method,
+                        'http.status_code' => "200",
+                        'http.url'         => $url,
+                        %$exp_tags,
+                    },
+                }
+            ];
             global_tracer_cmp_easy($exp_spans, $case_name);
         }
     };

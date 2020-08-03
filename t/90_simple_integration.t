@@ -84,7 +84,7 @@ sub opentracing_process_tags_query_params {
     password => '* * * * *',
     pwd      => '* * * * *',
     skipp_me => undef,
-    fallback { join ';', @_ },
+    sub { join ';', @_ },
 }
 
 sub run_modes {
