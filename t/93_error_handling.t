@@ -31,15 +31,16 @@ global_tracer_cmp_easy(
         {
             operation_name      => 'cgi_application_request',
             level               => 0,
-            tags                => {
-                'component'     => 'CGI::Application',
-                'http.method'   => 'GET',
-                'http.url'      => 'https://test.tst/test.cgi',
-                'http.query.rm' => 'run_fail',
-                'run_mode'      => 'run_fail',
-                'run_method'    => 'broken_method',
-                'error'         => 1,
-                'message'       => re(qr/Something wrong/),
+            tags => {
+                'component'        => 'CGI::Application',
+                'http.method'      => 'GET',
+                'http.url'         => 'https://test.tst/test.cgi',
+                'http.query.rm'    => 'run_fail',
+                'http.status_code' => 500,
+                'run_mode'         => 'run_fail',
+                'run_method'       => 'broken_method',
+                'error'            => 1,
+                'message'          => re(qr/Something wrong/),
             },
         },
     ], 'run_method dies and no on_error handler is defined'
@@ -51,15 +52,16 @@ global_tracer_cmp_easy(
         {
             operation_name      => 'cgi_application_request',
             level               => 0,
-            tags                => {
-                'component'     => 'CGI::Application',
-                'http.method'   => 'GET',
-                'http.url'      => 'https://test.tst/test.cgi',
-                'http.query.rm' => 'run_break',
-                'run_mode'      => 'run_break',
-                'run_method'    => 'broken_span',
-                'error'         => 1,
-                'message'       => re(qr/Something wrong/),
+            tags => {
+                'component'        => 'CGI::Application',
+                'http.method'      => 'GET',
+                'http.url'         => 'https://test.tst/test.cgi',
+                'http.query.rm'    => 'run_break',
+                'http.status_code' => 500,
+                'run_mode'         => 'run_break',
+                'run_method'       => 'broken_span',
+                'error'            => 1,
+                'message'          => re(qr/Something wrong/),
             },
         },
         {

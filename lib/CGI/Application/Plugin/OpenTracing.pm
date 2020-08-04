@@ -124,10 +124,14 @@ sub teardown {
 sub error {
     my ($cgi_app, $error) = @_;
 
-    my $root_addr    # if error_mode is defined, run span should continue
-        = $cgi_app->error_mode()
-        ? refaddr(_plugin_get_scope($cgi_app, CGI_RUN)->get_span)
-        : undef;
+    my $root_addr;
+    if ($cgi_app->error_mode()) {    # run span should continue
+        $root_addr = refaddr(_plugin_get_scope($cgi_app, CGI_RUN)->get_span);
+    }
+    else {                           # we're dying right after this hook
+        my $request_span = _plugin_get_scope($cgi_app, CGI_REQUEST)->get_span;
+        $request_span->add_tag('http.status_code' => 500);
+    }
 
     my $tracer = _plugin_get_tracer($cgi_app);
     while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
