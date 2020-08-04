@@ -29,7 +29,7 @@ eval { $mech->get('https://test.tst/test.cgi?rm=run_fail') };
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => CGI::Application::Plugin::OpenTracing::CGI_REQUEST,
+            operation_name      => 'cgi_application_request',
             level               => 0,
             tags                => {
                 'component'     => 'CGI::Application',
@@ -49,7 +49,7 @@ eval { $mech->get('https://test.tst/test.cgi?rm=run_break') };
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => CGI::Application::Plugin::OpenTracing::CGI_REQUEST,
+            operation_name      => 'cgi_application_request',
             level               => 0,
             tags                => {
                 'component'     => 'CGI::Application',
@@ -93,7 +93,7 @@ $mech->get('https://test.tst/test.cgi?rm=run_fail');
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => CGI::Application::Plugin::OpenTracing::CGI_REQUEST,
+            operation_name      => 'cgi_application_request',
             level               => 0,
             tags                => {
                 'component'           => 'CGI::Application',
@@ -113,7 +113,7 @@ $mech->get('https://test.tst/test.cgi?rm=run_break');
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => CGI::Application::Plugin::OpenTracing::CGI_REQUEST,
+            operation_name      => 'cgi_application_request',
             level               => 0,
             tags                => {
                 'component'           => 'CGI::Application',
