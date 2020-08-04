@@ -13,6 +13,7 @@ use OpenTracing::GlobalTracer;
 use Carp qw( croak carp );
 use HTTP::Headers;
 use HTTP::Status;
+use Scalar::Util qw( refaddr );
 use Time::HiRes qw( gettimeofday );
 
 use constant CGI_LOAD_TMPL => 'cgi_application_load_tmpl';
@@ -123,15 +124,15 @@ sub teardown {
 sub error {
     my ($cgi_app, $error) = @_;
 
-    my $root_id    # if error_mode is defined, run span should continue
+    my $root_addr    # if error_mode is defined, run span should continue
         = $cgi_app->error_mode()
-        ? _plugin_get_scope($cgi_app, CGI_RUN)->get_span->get_span_id
+        ? refaddr(_plugin_get_scope($cgi_app, CGI_RUN)->get_span)
         : undef;
 
     my $tracer = _plugin_get_tracer($cgi_app);
     while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
         my $span = $scope->get_span();
-        last if defined $root_id and $root_id eq $span->get_span_id();
+        last if defined $root_addr and $root_addr eq refaddr($span);
 
         $span->add_tags(error => 1, message => $error);
         $scope->close();
