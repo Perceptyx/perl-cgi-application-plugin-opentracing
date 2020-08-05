@@ -80,11 +80,11 @@ sub opentracing_baggage_items {
     bar => 2
 }
 
-sub opentracing_process_query_params {
-    my ($self, $param_name, $param_value) = @_;
-    return if $param_name eq 'skipp_me';
-    return '* * * * *' if $param_name =~ /(password|pwd)/i;
-    return join ';', @$param_value;
+sub opentracing_process_tags_query_params {
+    password => '* * * * *',
+    pwd      => '* * * * *',
+    skipp_me => undef,
+    sub { join ';', @_ },
 }
 
 sub run_modes {
