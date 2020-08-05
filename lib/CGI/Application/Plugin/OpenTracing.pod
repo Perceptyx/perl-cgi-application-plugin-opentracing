@@ -51,7 +51,7 @@ It will automatically create a new tracer, with a total of four spans:
 
 =item cgi_application
 
-This is the root span, wich will have a start time at the beginning of the cgi
+This is the root span, which will have a start time at the beginning of the cgi
 request, and last till the entire request will be finished.
 
 =back
@@ -115,82 +115,149 @@ a list of mentioned (fully qualified) subroutine names.
 =head1 FORMATTING TAGS
 
 Query parameters and form-data fields will be added to the request span as tags.
-While it's possible for a parameter to appear multiple times and therefore have
-multiple values, span tags need to be simple scalars. By default, parameters
-with multiple values will be joined with the value of
-C<$CGI::Application::Plugin::TAG_JOIN_CHAR> package variable (comma by default).
+For example, given a request URL:
 
-It's possible to customise the formatting per parameter using three callbacks:
+    http://test-app.com/data?id=1&view=compact
+
+The following tags would be added to the request span:
+
+    'http.query.id'   => 1,
+    'http.query.view' => 'compact',
+
+However, if a parameter is repeated:
+
+    http://test-app.com/data?id=1&id=2&id=3&view=compact
+
+there would be multiple values for the C<http.query.id> tag.
+OpenTracing span tags need to be scalars. The plugin will always turn
+multiple values into a simple string. There are a few ways
+to customize this behaviour.
+
+By default, the parameter values are joined with the contents of
+C<$CGI::Application::Plugin::TAG_JOIN_CHAR>, which is a comma by default.
+Without any customization, the example above would yield the following tags:
+
+    'http.query.id'   => '1,2,3',
+    'http.query.view' => 'compact',
+
+Simple join is often not enough and there are parameters which should
+be skipped or obscured. The plugin allows to specify the formatting
+with the following callbacks:
 
 =over 4
 
-=item * opentracing_process_tags_query_params
+=item opentracing_process_tags_query_params
 
-=item * opentracing_process_tags_form_fields
+Used to match and format URL query parameters (C<http.query.*> tags).
 
-=item * opentracing_process_tags
+=item opentracing_process_tags_form_fields
+
+Used to match and format form data fields (C<http.form.*> tags).
+
+=item opentracing_process_tags
+
+Used to match both query parameters and form data, when the specific
+callbacks fail to match (see L<Fallbacks and matching order>).
 
 =back
 
-Any of them can return a list of key-value pairs, to determine the formatting
-of query parameters, form fields or any of them, accordingly.
+Their expected return values all follow the same format of key-value pairs
+with an optional odd element at the end. For example:
 
-A special fallback entry can also be specified as an odd element at the end of
-the list. That entry will be used as the formatter for tags with no named matches.
-This means a fallback specified in C<opentracing_process_tags_query_params>
-will be used when neither C<opentracing_process_tags_query_params>
-or C<opentracing_process_tags> has an entry for a given query parameter.
-The same logic applies to form fields and C<opentracing_process_tags_form_fields>.
+    sub opentracing_process_tags_query_params {
+        id           => sub { "[@_]" },
+        location     => 'REDACTED',
+        access_token => undef,
+        sub { join ';', @_ },
+    }
 
-The keys returned by these callbacks are one of:
+Each key represents a parameter name to match. The values define how
+the parameter should be formatted. The last odd element is a fallback entry,
+used to format parameters not matched elsewhere.
+
+The values can be:
 
 =over 4
 
-=item * a scalar - match the parameter name exactly
+=item undef - will cause the tag to be skipped altogether
 
-=item * arrayref - match the parameter name exactly to any of the entries
+=item string - will be used as the tag value directly
 
-=item * regex - match the parameter to the expression
+=item arrayref - will be joined with C<$CGI::Application::Plugin::TAG_JOIN_CHAR>
+
+=item coderef - will be called with all values as arguments, and the return value will be used
 
 =back
 
-The following specifications are functionally identical:
+B<Note>: values returned by a coderef specification will be treated as
+non-coderef formatters. For example, if a coderef formatter returns C<undef>,
+the parameter will be skipped, if it returns an arrayref, it will be joined, etc.
+It can't return another coderef.
+
+Given the following example:
+
+  http://test-app.com/data?id=1&id=2&id=3
+
+  Specification        | http.query.id
+  ---------------------+--------------
+                       | 1,2,3
+  id => undef          | 
+  id => 'XXX'          | XXX
+  id => [ 'X', 'Y' ]   | X,Y
+  id => sub { "[@_]" } | [1 2 3]
+  id => sub { \@_ }    | 1,2,3
+  id => sub { undef }  |
+  id => sub { 'XXX' }  | XXX
+
+=head2 Matching multiple parameters
+
+Sometimes, a single formatter fits multiple parameters:
 
   sub opentracing_process_tags {
       pwd      => undef,
       password => undef,
   }
 
+Instead of repeating pairs, it's possible to specify multiple names with
+an array reference:
+
   sub opentracing_process_tags {
       ['pwd', 'password'] => undef,
   }
+
+Or match names with a regular expression:
 
   sub opentracing_process_tags {
       qr/\A(?:pwd|password)\z/ => undef,
   }
 
-The values can be one of:
+=head2 Fallbacks and matching order
 
-=over 4
+Whether it's a query parameter or a form field, their specific callback
+will be used first (if present) to check for named matches. If none
+match, the generic callback (L<opentracing_process_tags>) is checked.
 
-=item * a scalar - this will be used as the tag, regardless of parameter values
+Fallback entries, when present, are used to format params which were not
+specifically matched by name. Note that when a generic callback is available,
+the fallback from either L<opentracing_process_tags_query_params> or
+L<opentracing_process_tags_form_fields> will be used B<after> checking 
+for generic named matches.
 
-=item * undef - the parameter will be skipped and won't produce a tag at all
+Matching order for a query parameter:
 
-=item * a coderef - the coderef will be called on all the values and its return
-value will be used as the tag, if it returns an arrayref, the default join logic
-will be applied to its values
+  opentracing_process_tags_query_params - named matches
+  opentracing_process_tags              - named matches
+  opentracing_process_tags_query_params - fallback
+  opentracing_process_tags              - fallback
+  join with $CGI::Application::Plugin::TAG_JOIN_CHAR
 
-=back
+Matching order for a form field:
 
-Example callback:
-
-  sub opentracing_process_tags {
-      password => undef,                      # skip completely
-      location => 'REDACTED',                 # replace with a constant string
-      ids      => sub { join ':', uniq @_ },  # call the coderef on all values
-      sub { join '-', @_ },                   # join all remaining with a dash
-  }
+  opentracing_process_tags_form_fields - named matches
+  opentracing_process_tags             - named matches
+  opentracing_process_tags_form_fields - fallback
+  opentracing_process_tags             - fallback
+  join with $CGI::Application::Plugin::TAG_JOIN_CHAR
 
 =head1 CAVEATS
 
@@ -213,7 +280,7 @@ Theo van Hoesel <tvanhoesel@perceptyx.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-'OpenTracing::Implementation::NoOp' is Copyright (C) 2019 .. 2020, Perceptyx Inc
+'CGI::Application::Plugin::OpenTracing' is Copyright (C) 2019 .. 2020, Perceptyx Inc
 
 This library is free software; you can redistribute it and/or modify it under
 the terms of the Artistic License 2.0.
