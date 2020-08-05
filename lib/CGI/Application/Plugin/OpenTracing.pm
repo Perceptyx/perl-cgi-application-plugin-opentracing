@@ -40,7 +40,7 @@ sub import {
     $caller->add_callback( postrun   => \&postrun   );
     $caller->add_callback( load_tmpl => \&load_tmpl );
     $caller->add_callback( teardown  => \&teardown  );
-    $caller->add_callback( error     => \&error );
+    $caller->add_callback( error     => \&error     );
     
     no strict 'refs';
     *{ $caller . '::fallback' } = \&fallback;
@@ -123,7 +123,7 @@ sub teardown {
 
 sub error {
     my ($cgi_app, $error) = @_;
-
+    
     my $root_addr;
     if ($cgi_app->error_mode()) {    # run span should continue
         $root_addr = refaddr(_plugin_get_scope($cgi_app, CGI_RUN)->get_span);
@@ -132,12 +132,12 @@ sub error {
         my $request_span = _plugin_get_scope($cgi_app, CGI_REQUEST)->get_span;
         $request_span->add_tag('http.status_code' => 500);
     }
-
+    
     my $tracer = _plugin_get_tracer($cgi_app);
     while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
         my $span = $scope->get_span();
         last if defined $root_addr and $root_addr eq refaddr($span);
-
+        
         $span->add_tags(error => 1, message => $error);
         $scope->close();
     }
@@ -242,19 +242,19 @@ sub _get_request_tags {
 
 sub _gen_tag_processor {
     my $cgi_app = shift;
-
+    
     my $joiner = sub { join $TAG_JOIN_CHAR, @_ };
-
+    
     my (@specs, $fallback);
     foreach my $spec_gen (@_) {
         next if not defined $spec_gen;
-
+        
         my ($spec, $spec_fallback) = _gen_spec($spec_gen->());
         $fallback ||= $spec_fallback;
         push @specs, $spec;
     }
     $fallback ||= $joiner;
-
+    
     return sub {
         my ($cgi_app, $name, $values) = @_;
         
@@ -263,7 +263,7 @@ sub _gen_tag_processor {
             my ($matched, $spec_processor) = $spec->($name);
             $processor = $spec_processor if $matched;
         }
-
+        
         return            if not defined $processor;
         return $processor if not ref $processor;
 
@@ -272,17 +272,17 @@ sub _gen_tag_processor {
             $processed = $joiner->(@$processed) if ref $processed eq 'ARRAY';
             return $processed;
         }
-
+        
         croak "Invalid processor for param `$name`: ", ref $processor;
     };
 }
 
 sub _gen_spec {
     my @def = @_;
-
+    
     my $fallback;
     $fallback = pop @def if @def % 2 != 0;
-
+    
     my (%direct_match, @regex);
     while (my ($cond, $processor) = splice @def, 0, 2) {
         if (ref $cond eq 'Regexp') {
@@ -296,37 +296,37 @@ sub _gen_spec {
     }
     my $spec = sub {
         my ($name) = @_;
-
+        
         # return match state separately to differentiate from undef processors
         return (1, $direct_match{$name}) if exists $direct_match{$name};
-
+        
         foreach (@regex) {
             my ($re, $processor) = @$_;
             return (1, $processor) if $name =~ $re;
         }
         return;
     };
-
+    
     return ($spec, $fallback);
 }
 
 sub _get_query_params {
     my $cgi_app = shift;
-
+    
     my $processor = _gen_tag_processor($cgi_app,
         $cgi_app->can('opentracing_process_tags_query_params'),
         $cgi_app->can('opentracing_process_tags'),
     );
-
+    
     my %processed_params;
-
+    
     my $query = $cgi_app->query();
     foreach my $param ($query->url_param()) {
         next unless defined $param; # huh ???
         my @values          = $query->url_param($param);
         my $processed_value = $cgi_app->$processor($param, \@values);
         next unless defined $processed_value;
-
+        
         $processed_params{"http.query.$param"} = $processed_value;
     }
     return %processed_params;
@@ -471,7 +471,7 @@ sub _plugin_add_tags {
     my $operation_name = shift;
     my %tags           = @_;
     my $scope_name     = uc $operation_name;
-
+    
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
         ->get_span->add_tags(%tags);
 }
@@ -495,8 +495,8 @@ sub _plugin_close_scope {
 }
 
 sub _plugin_get_scope {
-    my $cgi_app    = shift;
-    my $scope_name = shift;
+    my $cgi_app        = shift;
+    my $scope_name     = shift;
     return $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{uc $scope_name};
 }
 
