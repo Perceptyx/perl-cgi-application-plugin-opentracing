@@ -13,6 +13,7 @@ use OpenTracing::GlobalTracer;
 use Carp qw( croak carp );
 use HTTP::Headers;
 use HTTP::Status;
+use Scalar::Util qw( refaddr );
 use Time::HiRes qw( gettimeofday );
 
 use constant CGI_LOAD_TMPL => 'cgi_application_load_tmpl';
@@ -39,6 +40,7 @@ sub import {
     $caller->add_callback( postrun   => \&postrun   );
     $caller->add_callback( load_tmpl => \&load_tmpl );
     $caller->add_callback( teardown  => \&teardown  );
+    $caller->add_callback( error     => \&error );
     
     no strict 'refs';
     *{ $caller . '::fallback' } = \&fallback;
@@ -115,6 +117,32 @@ sub teardown {
     _plugin_close_scope(       $cgi_app, CGI_REQUEST                        );
     
     return
+}
+
+
+
+sub error {
+    my ($cgi_app, $error) = @_;
+
+    my $root_addr;
+    if ($cgi_app->error_mode()) {    # run span should continue
+        $root_addr = refaddr(_plugin_get_scope($cgi_app, CGI_RUN)->get_span);
+    }
+    else {                           # we're dying right after this hook
+        my $request_span = _plugin_get_scope($cgi_app, CGI_REQUEST)->get_span;
+        $request_span->add_tag('http.status_code' => 500);
+    }
+
+    my $tracer = _plugin_get_tracer($cgi_app);
+    while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
+        my $span = $scope->get_span();
+        last if defined $root_addr and $root_addr eq refaddr($span);
+
+        $span->add_tags(error => 1, message => $error);
+        $scope->close();
+    }
+    
+    return;
 }
 
 
@@ -466,6 +494,11 @@ sub _plugin_close_scope {
     $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}->close
 }
 
+sub _plugin_get_scope {
+    my $cgi_app    = shift;
+    my $scope_name = shift;
+    return $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{uc $scope_name};
+}
 
 
 1;
