@@ -15,6 +15,7 @@ on 'test' => sub {
     requires    "Test::OpenTracing::Integration", 'v0.102.0';
     requires    "Test::MockObject";
     requires    "Test::WWW::Mechanize::CGIApp";
+    requires    "LWP::UserAgent", '6.42';
 }
 
 # on 'examples' => sub {
