@@ -49,6 +49,7 @@ sub import {
         ? \&run_glob
         : eval "package $caller;"  # SUPER works based on the package it's defined in
              . 'sub { my $self = shift; $self->SUPER::run(@_) }';
+    no warnings 'redefine';
     *$run_glob = _wrap_run($run_orig);
 
     return;
