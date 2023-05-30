@@ -31,18 +31,18 @@ eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_die') };
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => 'cgi_application_request',
-            level               => 0,
-            tags => {
-                'component'        => 'CGI::Application',
-                'http.method'      => 'GET',
-                'http.url'         => 'https://test.tst/test.cgi',
-                'http.query.rm'    => 'run_mode_die',
-                'http.status_code' => 500,
-                'run_mode'         => 'run_mode_die',
-                'run_method'       => 'method_die',
-                'error'            => 1,
-                'message'          => re(qr/Method Die/),
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_die',
+                'http.status_code'      => 500,
+                'run_mode'              => 'run_mode_die',
+                'run_method'            => 'method_die',
+                'error'                 => 1,
+                'message'               => re(qr/Method Die/),
             },
         },
     ], 'CGI::App [WithErrorBase/run_mode_die], dies "Method Die" at [method_die]'
@@ -52,25 +52,29 @@ eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_one') };
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => 'cgi_application_request',
-            level               => 0,
-            tags => {
-                'component'        => 'CGI::Application',
-                'http.method'      => 'GET',
-                'http.url'         => 'https://test.tst/test.cgi',
-                'http.query.rm'    => 'run_mode_one',
-                'http.status_code' => 500,
-                'run_mode'         => 'run_mode_one',
-                'run_method'       => 'method_one',
-                'error'            => 1,
-                'message'          => re(qr/Inside Die/),
-            },
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_one',
+                'http.status_code'      => 500,
+                'run_mode'              => 'run_mode_one',
+                'run_method'            => 'method_one',
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
+            },      
         },
         {
             operation_name => 'level_one',
             tags           => {
                 'error' => 1,
                 'message' => re(qr/Inside Die/),
+            operation_name          => 'level_one',
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
             },
         },
     ], 'CGI::App [WithErrorBase/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
@@ -80,17 +84,17 @@ eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_xxx') };
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => 'cgi_application_request',
-            level               => 0,
-            tags => {
-                'component'        => 'CGI::Application',
-                'http.method'      => 'GET',
-                'http.url'         => 'https://test.tst/test.cgi',
-                'http.query.rm'    => 'run_mode_xxx',
-                'http.status_code' => 500,
-                'error'            => 1,
-                'run_mode'         => 'run_mode_xxx',
-                'message'          => re(qr/No such run mode/),
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_xxx',
+                'http.status_code'      => 500,
+                'error'                 => 1,
+                'run_mode'              => 'run_mode_xxx',
+                'message'               => re(qr/No such run mode/),
             },
         },
     ], 'CGI::App [WithErrorBase/run_mode_xxx] invalid'
@@ -117,17 +121,17 @@ $mech->get('https://test.tst/test.cgi?rm=run_mode_die');
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => 'cgi_application_request',
-            level               => 0,
-            tags                => {
-                'component'           => 'CGI::Application',
-                'http.method'         => 'GET',
-                'http.url'            => 'https://test.tst/test.cgi',
-                'http.query.rm'       => 'run_mode_die',
-                'http.status_code'    => '402',
-                'http.status_message' => "Payment Required",
-                'run_mode'            => 'run_mode_die',
-                'run_method'          => 'method_die',
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_die',
+                'http.status_code'      => '402',
+                'http.status_message'   => "Payment Required",
+                'run_mode'              => 'run_mode_die',
+                'run_method'            => 'method_die',
             },
         },
     ], 'CGI::App [WithErrorMode/run_mode_die], dies "Method Die" at [method_die]'
@@ -137,24 +141,24 @@ $mech->get('https://test.tst/test.cgi?rm=run_mode_one');
 global_tracer_cmp_easy(
     [
         {
-            operation_name      => 'cgi_application_request',
-            level               => 0,
-            tags                => {
-                'component'           => 'CGI::Application',
-                'http.method'         => 'GET',
-                'http.url'            => 'https://test.tst/test.cgi',
-                'http.query.rm'       => 'run_mode_one',
-                'http.status_code'    => '402',
-                'http.status_message' => "Payment Required",
-                'run_mode'            => 'run_mode_one',
-                'run_method'          => 'method_one',
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_one',
+                'http.status_code'      => '402',
+                'http.status_message'   => "Payment Required",
+                'run_mode'              => 'run_mode_one',
+                'run_method'            => 'method_one',
             },
         },
         {
-            operation_name => 'level_one',
-            tags           => {
-                'error' => 1,
-                'message' => re(qr/Inside Die/),
+            operation_name          => 'level_one',
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
             },
         },
     ], 'CGI::App [WithErrorMode/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
