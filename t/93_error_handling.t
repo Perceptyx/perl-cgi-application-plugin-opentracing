@@ -45,6 +45,10 @@ global_tracer_cmp_easy(
                 'message'               => re(qr/Method Die/),
             },
         },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+        },
     ], 'CGI::App [WithErrorBase/run_mode_die], dies "Method Die" at [method_die]'
 );
 
@@ -67,11 +71,12 @@ global_tracer_cmp_easy(
             },      
         },
         {
-            operation_name => 'level_one',
-            tags           => {
-                'error' => 1,
-                'message' => re(qr/Inside Die/),
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+        },
+        {
             operation_name          => 'level_one',
+            level                   => 2,
             tags                    => {
                 'error'                 => 1,
                 'message'               => re(qr/Inside Die/),
@@ -96,6 +101,10 @@ global_tracer_cmp_easy(
                 'run_mode'              => 'run_mode_xxx',
                 'message'               => re(qr/No such run mode/),
             },
+        },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
         },
     ], 'CGI::App [WithErrorBase/run_mode_xxx] invalid'
 );
@@ -134,6 +143,10 @@ global_tracer_cmp_easy(
                 'run_method'            => 'method_die',
             },
         },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+        },
     ], 'CGI::App [WithErrorMode/run_mode_die], dies "Method Die" at [method_die]'
 );
 
@@ -155,7 +168,12 @@ global_tracer_cmp_easy(
             },
         },
         {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+        },
+        {
             operation_name          => 'level_one',
+            level                   => 2,
             tags                    => {
                 'error'                 => 1,
                 'message'               => re(qr/Inside Die/),
