@@ -115,6 +115,54 @@ global_tracer_cmp_easy(
 
 
 
+eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_two') };
+
+global_tracer_cmp_easy(
+    [
+        {
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_two',
+                'http.status_code'      => 500,
+                'run_mode'              => 'run_mode_two',
+                'run_method'            => 'method_two',
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
+            },      
+        },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
+            },
+        },
+        {
+            operation_name          => 'level_one',
+            level                   => 2,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
+            },
+        },
+        {
+            operation_name          => 'level_two',
+            level                   => 3,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
+            },
+        },
+    ], 'CGI::App [WithErrorBase/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
+);
+
+
+
 eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_xxx') };
 
 global_tracer_cmp_easy(
@@ -242,6 +290,52 @@ global_tracer_cmp_easy(
     ], 'CGI::App [WithErrorMode/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
 );
 
+
+
+eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_two') };
+
+global_tracer_cmp_easy(
+    [
+        {
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_two',
+                'http.status_code'      => 402,
+                'http.status_message'   => "Payment Required",
+                'run_mode'              => 'run_mode_two',
+                'run_method'            => 'method_two',
+            },      
+        },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+            tags                    => {},
+        },
+        {
+            operation_name          => 'level_one',
+            level                   => 2,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
+            },
+        },
+        {
+            operation_name          => 'level_two',
+            level                   => 3,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
+            },
+        },
+    ], 'CGI::App [WithErrorBase/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
+);
+
+
+
 done_testing();
 
 
@@ -255,6 +349,7 @@ use OpenTracing::GlobalTracer qw/$TRACER/;
 sub run_modes {
     run_mode_die => 'method_die',
     run_mode_one => 'method_one',
+    run_mode_two => 'method_two',
     run_mode_204 => 'method_204',
 }
 
@@ -265,7 +360,17 @@ sub method_one {
     inside_die();
 }
 
+sub method_two {
+    my $scope = $TRACER->start_active_span('level_one');
+    inside_two()    
+}
+
 sub method_204 { $_[0]->header_add(-status => '204') }
+
+sub inside_two {
+    my $scope = $TRACER->start_active_span('level_two');
+    inside_die();
+}
 
 sub inside_die { die 'Something wrong within "Inside Die"' }
 
