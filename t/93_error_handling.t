@@ -15,6 +15,34 @@ lives_ok {
 
 
 
+$mech->get('https://test.tst/test.cgi?rm=run_mode_204');
+
+global_tracer_cmp_easy(
+    [
+        {
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_204',
+                'http.status_code'      => 204,
+                'http.status_message'   => 'No Content',
+                'run_mode'              => 'run_mode_204',
+                'run_method'            => 'method_204',
+            },
+        },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+            tags                    => { },
+        },
+    ], 'CGI::App [WithErrorBase/run_mode_204], Returns "No Content" at [method_204]'
+);
+
+
+
 eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_die') };
 
 global_tracer_cmp_easy(
@@ -124,6 +152,34 @@ lives_ok {
 
 
 
+$mech->get('https://test.tst/test.cgi?rm=run_mode_204');
+
+global_tracer_cmp_easy(
+    [
+        {
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_204',
+                'http.status_code'      => 204,
+                'http.status_message'   => 'No Content',
+                'run_mode'              => 'run_mode_204',
+                'run_method'            => 'method_204',
+            },
+        },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+            tags                    => { },
+        },
+    ], 'CGI::App [WithErrorMode/run_mode_204], Returns "No Content" at [method_204]'
+);
+
+
+
 $mech->get('https://test.tst/test.cgi?rm=run_mode_die');
 
 global_tracer_cmp_easy(
@@ -199,6 +255,7 @@ use OpenTracing::GlobalTracer qw/$TRACER/;
 sub run_modes {
     run_mode_die => 'method_die',
     run_mode_one => 'method_one',
+    run_mode_204 => 'method_204',
 }
 
 sub method_die { die 'Something wrong within "Method Die"' }
@@ -207,6 +264,8 @@ sub method_one {
     my $scope = $TRACER->start_active_span('level_one');
     inside_die();
 }
+
+sub method_204 { $_[0]->header_add(-status => '204') }
 
 sub inside_die { die 'Something wrong within "Inside Die"' }
 
