@@ -3,28 +3,6 @@ use Test::MockObject;
 use Test::OpenTracing::Integration;
 use Test::WWW::Mechanize::CGIApp;
 
-{
-    package MyTest::WithErrorBase;
-    use base 'CGI::Application';
-
-    use CGI::Application::Plugin::OpenTracing qw/Test/;
-    use OpenTracing::GlobalTracer qw/$TRACER/;
-
-    sub run_modes {
-        run_mode_die => 'method_die',
-        run_mode_one => 'method_one',
-    }
-
-    sub method_die { die 'Something wrong within "Method Die"' }
-
-    sub method_one {
-        my $scope = $TRACER->start_active_span('level_one');
-        inside_die();
-    }
-
-    sub inside_die { die 'Something wrong within "Inside Die"' }
-}
-
 my $mech = Test::WWW::Mechanize::CGIApp->new(app => 'MyTest::WithErrorBase');
 
 eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_die') };
@@ -121,21 +99,6 @@ global_tracer_cmp_easy(
     ], 'CGI::App [WithErrorBase/run_mode_xxx] invalid'
 );
 
-{
-    package MyTest::WithErrorMode;
-    use base 'MyTest::WithErrorBase';
-
-    sub cgiapp_init { $_[0]->error_mode('show_error') }
-
-    sub show_error {
-        my $self = shift;
-
-        $self->header_add(-status => '402');
-
-        return 'Pay up'
-    }
-}
-
 $mech = Test::WWW::Mechanize::CGIApp->new(app => 'MyTest::WithErrorMode');
 
 $mech->get('https://test.tst/test.cgi?rm=run_mode_die');
@@ -197,3 +160,40 @@ global_tracer_cmp_easy(
 );
 
 done_testing();
+
+
+
+package MyTest::WithErrorBase;
+use base 'CGI::Application';
+
+use CGI::Application::Plugin::OpenTracing qw/Test/;
+use OpenTracing::GlobalTracer qw/$TRACER/;
+
+sub run_modes {
+    run_mode_die => 'method_die',
+    run_mode_one => 'method_one',
+}
+
+sub method_die { die 'Something wrong within "Method Die"' }
+
+sub method_one {
+    my $scope = $TRACER->start_active_span('level_one');
+    inside_die();
+}
+
+sub inside_die { die 'Something wrong within "Inside Die"' }
+
+
+
+package MyTest::WithErrorMode;
+use base 'MyTest::WithErrorBase';
+
+sub cgiapp_init { $_[0]->error_mode('show_error') }
+
+sub show_error {
+    my $self = shift;
+
+    $self->header_add(-status => '402');
+
+    return 'Pay up'
+}
