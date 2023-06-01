@@ -48,6 +48,10 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Method Die/),
+            },
         },
     ], 'CGI::App [WithErrorBase/run_mode_die], dies "Method Die" at [method_die]'
 );
@@ -73,6 +77,10 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Inside Die/),
+            },
         },
         {
             operation_name          => 'level_one',
@@ -105,6 +113,10 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/No such run mode/),
+            },
         },
     ], 'CGI::App [WithErrorBase/run_mode_xxx] invalid'
 );
@@ -146,6 +158,7 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
+            tags                    => {},
         },
     ], 'CGI::App [WithErrorMode/run_mode_die], dies "Method Die" at [method_die]'
 );
@@ -170,6 +183,7 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
+            tags                    => {},
         },
         {
             operation_name          => 'level_one',
