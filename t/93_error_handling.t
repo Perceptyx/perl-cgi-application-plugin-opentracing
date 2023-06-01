@@ -3,7 +3,11 @@ use Test::MockObject;
 use Test::OpenTracing::Integration;
 use Test::WWW::Mechanize::CGIApp;
 
-my $mech = Test::WWW::Mechanize::CGIApp->new(app => 'MyTest::WithErrorBase');
+my $mech = Test::WWW::Mechanize::CGIApp->new();
+
+lives_ok {
+    $mech->app('MyTest::WithErrorBase');
+} "Set Test::WWW::Mechanize app to 'MyTest::WithErrorBase'";
 
 eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_die') };
 global_tracer_cmp_easy(
@@ -99,7 +103,9 @@ global_tracer_cmp_easy(
     ], 'CGI::App [WithErrorBase/run_mode_xxx] invalid'
 );
 
-$mech = Test::WWW::Mechanize::CGIApp->new(app => 'MyTest::WithErrorMode');
+lives_ok {
+    $mech->app('MyTest::WithErrorMode');
+} "Set Test::WWW::Mechanize app to 'MyTest::WithErrorMode'";
 
 $mech->get('https://test.tst/test.cgi?rm=run_mode_die');
 global_tracer_cmp_easy(
