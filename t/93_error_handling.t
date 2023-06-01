@@ -3,13 +3,20 @@ use Test::MockObject;
 use Test::OpenTracing::Integration;
 use Test::WWW::Mechanize::CGIApp;
 
+
+
 my $mech = Test::WWW::Mechanize::CGIApp->new();
+
+
 
 lives_ok {
     $mech->app('MyTest::WithErrorBase');
 } "Set Test::WWW::Mechanize app to 'MyTest::WithErrorBase'";
 
+
+
 eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_die') };
+
 global_tracer_cmp_easy(
     [
         {
@@ -38,7 +45,10 @@ global_tracer_cmp_easy(
     ], 'CGI::App [WithErrorBase/run_mode_die], dies "Method Die" at [method_die]'
 );
 
+
+
 eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_one') };
+
 global_tracer_cmp_easy(
     [
         {
@@ -75,7 +85,10 @@ global_tracer_cmp_easy(
     ], 'CGI::App [WithErrorBase/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
 );
 
+
+
 eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_xxx') };
+
 global_tracer_cmp_easy(
     [
         {
@@ -103,11 +116,16 @@ global_tracer_cmp_easy(
     ], 'CGI::App [WithErrorBase/run_mode_xxx] invalid'
 );
 
+
+
 lives_ok {
     $mech->app('MyTest::WithErrorMode');
 } "Set Test::WWW::Mechanize app to 'MyTest::WithErrorMode'";
 
+
+
 $mech->get('https://test.tst/test.cgi?rm=run_mode_die');
+
 global_tracer_cmp_easy(
     [
         {
@@ -132,7 +150,10 @@ global_tracer_cmp_easy(
     ], 'CGI::App [WithErrorMode/run_mode_die], dies "Method Die" at [method_die]'
 );
 
+
+
 $mech->get('https://test.tst/test.cgi?rm=run_mode_one');
+
 global_tracer_cmp_easy(
     [
         {
