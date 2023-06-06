@@ -75,9 +75,11 @@ sub _wrap_run {
         return $wantarray ? @$res : $res if $ok;
 
         my $error = $@;
-
+        
+        $cgi_app->header_add(-status => '500');
+        
         my $request_span = _plugin_get_scope($cgi_app, CGI_REQUEST)->get_span;
-        $request_span->add_tag('http.status_code' => 500);
+        $request_span->add_tags(_get_http_status_tags($cgi_app));
 
         _cascade_set_failed_spans($cgi_app, $error);
 
