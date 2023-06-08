@@ -99,10 +99,7 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {
-                'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
-            },
+            tags                    => { },
         },
         {
             operation_name          => 'level_one',
@@ -140,18 +137,12 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {
-                'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
-            },
+            tags                    => { },
         },
         {
             operation_name          => 'level_one',
             level                   => 2,
-            tags                    => {
-                'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
-            },
+            tags                    => { },
         },
         {
             operation_name          => 'level_two',
@@ -253,7 +244,10 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {},
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Method Die/),
+            },
         },
     ], 'CGI::App [WithErrorMode/run_mode_die], dies "Method Die" at [method_die]'
 );
@@ -281,7 +275,7 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {},
+            tags                    => { },
         },
         {
             operation_name          => 'level_one',
@@ -317,15 +311,12 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {},
+            tags                    => { },
         },
         {
             operation_name          => 'level_one',
             level                   => 2,
-            tags                    => {
-                'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
-            },
+            tags                    => { },
         },
         {
             operation_name          => 'level_two',
