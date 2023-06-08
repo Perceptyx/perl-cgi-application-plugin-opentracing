@@ -161,7 +161,7 @@ global_tracer_cmp_easy(
                 'message'               => re(qr/Inside Die/),
             },
         },
-    ], 'CGI::App [WithErrorBase/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
+    ], 'CGI::App [WithErrorBase/run_mode_two], dies "Inside Die" at [level_one/level_two/inside_die]'
 );
 
 
@@ -335,7 +335,7 @@ global_tracer_cmp_easy(
                 'message'               => re(qr/Inside Die/),
             },
         },
-    ], 'CGI::App [WithErrorBase/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
+    ], 'CGI::App [WithErrorMode/run_mode_two], dies "Inside Die" at [level_one/level_two/inside_die]'
 );
 
 
