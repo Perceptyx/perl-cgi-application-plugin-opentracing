@@ -27,6 +27,25 @@ our @implementation_import_opts;
 
 our $TAG_JOIN_CHAR = ',';
 
+
+
+################################################################################
+#
+# NOTE: please take a minute to understand the structure of this module
+#
+# CGI::Application::Plugin has an interesting design on itself
+#
+# within this code base there are three sections:
+# - import
+# - callbacks, as defined by CGI::Application
+# - plugin related methods, that deal with the plugin internals
+# - tracing specific routines
+# - cgi related routines, that just work on the CGI::Application only
+#
+################################################################################
+
+
+
 sub import {
     my $package = shift;
     
