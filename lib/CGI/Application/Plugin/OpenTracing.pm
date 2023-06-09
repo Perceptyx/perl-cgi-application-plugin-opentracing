@@ -74,53 +74,6 @@ sub import {
     return;
 }
 
-sub _wrap_run {
-    my ($orig) = @_;
-
-    return sub {
-        my $cgi_app = shift;
-
-        my $res;
-        my $wantarray = wantarray;    # eval has its own
-        my $ok = eval {
-            if ($wantarray) {
-                $res = [ $cgi_app->$orig(@_) ];
-            }
-            else {
-                $res = $cgi_app->$orig(@_);
-            }
-            1;
-        };
-        return $wantarray ? @$res : $res if $ok;
-
-        my $error = $@;
-        
-        $cgi_app->header_add(-status => '500');
-        
-        my $request_span = _plugin_get_scope($cgi_app, CGI_REQUEST)->get_span;
-        $request_span->add_tags(_get_http_status_tags($cgi_app));
-
-        _cascade_set_failed_spans($cgi_app, $error);
-
-        die $error;
-    };
-}
-
-sub _cascade_set_failed_spans {
-    my ($cgi_app, $error, $root_span) = @_;
-    my $root_addr = refaddr($root_span) if defined $root_span;
-
-    my $tracer = _plugin_get_tracer($cgi_app);
-    while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
-        my $span = $scope->get_span();
-        last if defined $root_addr and $root_addr eq refaddr($span);
-
-        $span->add_tags(error => 1, message => $error);
-        $scope->close();
-    }
-    return;
-}
-
 sub init {
     my $cgi_app = shift;
     
@@ -298,76 +251,6 @@ sub _get_request_tags {
     
 
     return %tags
-}
-
-sub _gen_tag_processor {
-    my $cgi_app = shift;
-    
-    my $joiner = sub { join $TAG_JOIN_CHAR, @_ };
-    
-    my (@specs, $fallback);
-    foreach my $spec_gen (@_) {
-        next if not defined $spec_gen;
-        
-        my ($spec, $spec_fallback) = _gen_spec($spec_gen->());
-        $fallback ||= $spec_fallback;
-        push @specs, $spec;
-    }
-    $fallback ||= $joiner;
-    
-    return sub {
-        my ($cgi_app, $name, $values) = @_;
-        
-        my $processor = $fallback;
-        foreach my $spec (@specs) {
-            my ($matched, $spec_processor) = $spec->($name);
-            $processor = $spec_processor if $matched;
-        }
-        
-        return            if not defined $processor;
-        return $processor if not ref $processor;
-
-        if (ref $processor eq 'CODE') {
-            my $processed = $processor->(@$values);
-            $processed = $joiner->(@$processed) if ref $processed eq 'ARRAY';
-            return $processed;
-        }
-        
-        croak "Invalid processor for param `$name`: ", ref $processor;
-    };
-}
-
-sub _gen_spec {
-    my @def = @_;
-    
-    my $fallback;
-    $fallback = pop @def if @def % 2 != 0;
-    
-    my (%direct_match, @regex);
-    while (my ($cond, $processor) = splice @def, 0, 2) {
-        if (ref $cond eq 'Regexp') {
-            push @regex, [ $cond => $processor ];
-        }
-        else {
-            foreach my $name (ref $cond eq 'ARRAY' ? @$cond : $cond) {
-                $direct_match{$name} = $processor;
-            }
-        }
-    }
-    my $spec = sub {
-        my ($name) = @_;
-        
-        # return match state separately to differentiate from undef processors
-        return (1, $direct_match{$name}) if exists $direct_match{$name};
-        
-        foreach (@regex) {
-            my ($re, $processor) = @$_;
-            return (1, $processor) if $name =~ $re;
-        }
-        return;
-    };
-    
-    return ($spec, $fallback);
 }
 
 sub _get_query_params {
@@ -558,6 +441,139 @@ sub _plugin_get_scope {
     my $cgi_app        = shift;
     my $scope_name     = shift;
     return $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{uc $scope_name};
+}
+
+
+
+################################################################################
+#
+#   some internals
+#
+################################################################################
+
+
+
+sub _gen_tag_processor {
+    my $cgi_app = shift;
+    
+    my $joiner = sub { join $TAG_JOIN_CHAR, @_ };
+    
+    my (@specs, $fallback);
+    foreach my $spec_gen (@_) {
+        next if not defined $spec_gen;
+        
+        my ($spec, $spec_fallback) = _gen_spec($spec_gen->());
+        $fallback ||= $spec_fallback;
+        push @specs, $spec;
+    }
+    $fallback ||= $joiner;
+    
+    return sub {
+        my ($cgi_app, $name, $values) = @_;
+        
+        my $processor = $fallback;
+        foreach my $spec (@specs) {
+            my ($matched, $spec_processor) = $spec->($name);
+            $processor = $spec_processor if $matched;
+        }
+        
+        return            if not defined $processor;
+        return $processor if not ref $processor;
+
+        if (ref $processor eq 'CODE') {
+            my $processed = $processor->(@$values);
+            $processed = $joiner->(@$processed) if ref $processed eq 'ARRAY';
+            return $processed;
+        }
+        
+        croak "Invalid processor for param `$name`: ", ref $processor;
+    };
+}
+
+
+
+sub _gen_spec {
+    my @def = @_;
+    
+    my $fallback;
+    $fallback = pop @def if @def % 2 != 0;
+    
+    my (%direct_match, @regex);
+    while (my ($cond, $processor) = splice @def, 0, 2) {
+        if (ref $cond eq 'Regexp') {
+            push @regex, [ $cond => $processor ];
+        }
+        else {
+            foreach my $name (ref $cond eq 'ARRAY' ? @$cond : $cond) {
+                $direct_match{$name} = $processor;
+            }
+        }
+    }
+    my $spec = sub {
+        my ($name) = @_;
+        
+        # return match state separately to differentiate from undef processors
+        return (1, $direct_match{$name}) if exists $direct_match{$name};
+        
+        foreach (@regex) {
+            my ($re, $processor) = @$_;
+            return (1, $processor) if $name =~ $re;
+        }
+        return;
+    };
+    
+    return ($spec, $fallback);
+}
+
+
+
+sub _wrap_run {
+    my ($orig) = @_;
+
+    return sub {
+        my $cgi_app = shift;
+
+        my $res;
+        my $wantarray = wantarray;    # eval has its own
+        my $ok = eval {
+            if ($wantarray) {
+                $res = [ $cgi_app->$orig(@_) ];
+            }
+            else {
+                $res = $cgi_app->$orig(@_);
+            }
+            1;
+        };
+        return $wantarray ? @$res : $res if $ok;
+
+        my $error = $@;
+        
+        $cgi_app->header_add(-status => '500');
+        
+        my $request_span = _plugin_get_scope($cgi_app, CGI_REQUEST)->get_span;
+        $request_span->add_tags(_get_http_status_tags($cgi_app));
+
+        _cascade_set_failed_spans($cgi_app, $error);
+
+        die $error;
+    };
+}
+
+
+
+sub _cascade_set_failed_spans {
+    my ($cgi_app, $error, $root_span) = @_;
+    my $root_addr = refaddr($root_span) if defined $root_span;
+
+    my $tracer = _plugin_get_tracer($cgi_app);
+    while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
+        my $span = $scope->get_span();
+        last if defined $root_addr and $root_addr eq refaddr($span);
+
+        $span->add_tags(error => 1, message => $error);
+        $scope->close();
+    }
+    return;
 }
 
 
