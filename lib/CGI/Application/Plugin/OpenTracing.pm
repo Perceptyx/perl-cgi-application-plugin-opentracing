@@ -197,6 +197,13 @@ sub error {
     
     return if not $cgi_app->error_mode();    # we're dying
     
+    my $request_span = $plugin->get_scope(CGI_REQUEST)->get_span;
+    $request_span->add_tags(_get_http_status_tags($cgi_app));
+#   $request_span->add_tags(error => 1, message => $error);
+    
+    my $active_span = $plugin->get_tracer()->get_active_span();
+    $active_span->add_tags(error => 1, message => $error);
+    
     # run span should continue
     my $root = $plugin->get_scope(CGI_RUN)->get_span;
     
@@ -321,8 +328,8 @@ sub _cascade_set_failed_spans {
     while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
         my $span = $scope->get_span();
         last if defined $root_addr and $root_addr eq refaddr($span);
-
-        $span->add_tags(error => 1, message => $error);
+        
+#       $span->add_tags(error => 1, message => $error);
         $scope->close();
     }
     return;
@@ -676,6 +683,10 @@ sub _wrap_run {
         
         my $request_span = $plugin->get_scope(CGI_REQUEST)->get_span;
         $request_span->add_tags(_get_http_status_tags($cgi_app));
+        $request_span->add_tags(error => 1, message => $error);
+        
+        my $active_span = $plugin->get_tracer()->get_active_span();
+        $active_span->add_tags(error => 1, message => $error);
         
         my $tracer = $plugin->get_tracer();
         _cascade_set_failed_spans($tracer, $error);
