@@ -170,6 +170,86 @@ sub error {
 
 
 
+################################################################################
+#
+#   Plugin methods
+#
+################################################################################
+
+
+
+sub _plugin_get_tracer {
+    my $cgi_app = shift;
+    return $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER}
+}
+
+sub _plugin_init_opentracing_implementation {
+    my $cgi_app = shift;
+    
+    _init_global_tracer($cgi_app);
+#       unless OpenTracing::GlobalTracer->is_registered;
+    my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
+}
+
+sub _plugin_start_active_span {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my %params         = @_;
+    my $scope_name     = uc $operation_name;
+    
+    my $scope =
+    _tracer_start_active_span( $cgi_app, $operation_name, %params );
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name} = $scope;
+}
+
+sub _tracer_start_active_span {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my %params         = @_;
+    
+    my $tracer = _plugin_get_tracer($cgi_app);
+    $tracer->start_active_span( $operation_name, %params );
+}
+
+sub _plugin_add_tags {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my %tags           = @_;
+    my $scope_name     = uc $operation_name;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
+        ->get_span->add_tags(%tags);
+}
+
+sub _plugin_add_baggage_items {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my %baggage_items  = @_;
+    my $scope_name     = uc $operation_name;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
+        ->get_span->add_baggage_items( %baggage_items );
+}
+
+sub _plugin_close_scope {
+    my $cgi_app        = shift;
+    my $operation_name = shift;
+    my $scope_name     = uc $operation_name;
+    
+    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}->close
+}
+
+sub _plugin_get_scope {
+    my $cgi_app        = shift;
+    my $scope_name     = shift;
+    return $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{uc $scope_name};
+}
+
+
+
 sub _init_global_tracer {
     my $cgi_app = shift;
     
@@ -381,76 +461,6 @@ sub _tracer_extract_context {
     my $tracer = _plugin_get_tracer( $cgi_app );
     
     return $tracer->extract_context($http_headers)
-}
-
-sub _plugin_get_tracer {
-    my $cgi_app = shift;
-    return $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER}
-}
-
-sub _plugin_init_opentracing_implementation {
-    my $cgi_app = shift;
-    
-    _init_global_tracer($cgi_app);
-#       unless OpenTracing::GlobalTracer->is_registered;
-    my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
-}
-
-sub _plugin_start_active_span {
-    my $cgi_app        = shift;
-    my $operation_name = shift;
-    my %params         = @_;
-    my $scope_name     = uc $operation_name;
-    
-    my $scope =
-    _tracer_start_active_span( $cgi_app, $operation_name, %params );
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name} = $scope;
-}
-
-sub _tracer_start_active_span {
-    my $cgi_app        = shift;
-    my $operation_name = shift;
-    my %params         = @_;
-    
-    my $tracer = _plugin_get_tracer($cgi_app);
-    $tracer->start_active_span( $operation_name, %params );
-}
-
-sub _plugin_add_tags {
-    my $cgi_app        = shift;
-    my $operation_name = shift;
-    my %tags           = @_;
-    my $scope_name     = uc $operation_name;
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
-        ->get_span->add_tags(%tags);
-}
-
-sub _plugin_add_baggage_items {
-    my $cgi_app        = shift;
-    my $operation_name = shift;
-    my %baggage_items  = @_;
-    my $scope_name     = uc $operation_name;
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
-        ->get_span->add_baggage_items( %baggage_items );
-}
-
-sub _plugin_close_scope {
-    my $cgi_app        = shift;
-    my $operation_name = shift;
-    my $scope_name     = uc $operation_name;
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}->close
-}
-
-sub _plugin_get_scope {
-    my $cgi_app        = shift;
-    my $scope_name     = shift;
-    return $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{uc $scope_name};
 }
 
 
