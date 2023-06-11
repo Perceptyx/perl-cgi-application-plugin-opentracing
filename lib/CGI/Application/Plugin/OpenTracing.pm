@@ -171,7 +171,9 @@ sub error {
 
     # run span should continue
     my $root = _plugin_get_scope($cgi_app, CGI_RUN)->get_span;
-    _cascade_set_failed_spans($cgi_app, $error, $root);
+    
+    my $tracer = _plugin_get_tracer($cgi_app);
+    _cascade_set_failed_spans($tracer, $error, $root);
     
     return;
 }
@@ -209,19 +211,10 @@ sub _plugin_start_active_span {
     my %params         = @_;
     my $scope_name     = uc $operation_name;
     
-    my $scope =
-    _tracer_start_active_span( $cgi_app, $operation_name, %params );
+    my $tracer = _plugin_get_tracer($cgi_app);
+    my $scope = $tracer->start_active_span( $operation_name, %params );
     
     _get_plugin($cgi_app)->{SCOPE}{$scope_name} = $scope;
-}
-
-sub _tracer_start_active_span {
-    my $cgi_app        = shift;
-    my $operation_name = shift;
-    my %params         = @_;
-    
-    my $tracer = _plugin_get_tracer($cgi_app);
-    $tracer->start_active_span( $operation_name, %params );
 }
 
 sub _plugin_add_tags {
@@ -602,8 +595,9 @@ sub _wrap_run {
         
         my $request_span = _plugin_get_scope($cgi_app, CGI_REQUEST)->get_span;
         $request_span->add_tags(_get_http_status_tags($cgi_app));
-
-        _cascade_set_failed_spans($cgi_app, $error);
+        
+        my $tracer = _plugin_get_tracer($cgi_app);
+        _cascade_set_failed_spans($tracer, $error);
 
         die $error;
     };
@@ -612,10 +606,9 @@ sub _wrap_run {
 
 
 sub _cascade_set_failed_spans {
-    my ($cgi_app, $error, $root_span) = @_;
+    my ($tracer, $error, $root_span) = @_;
     my $root_addr = refaddr($root_span) if defined $root_span;
 
-    my $tracer = _plugin_get_tracer($cgi_app);
     while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
         my $span = $scope->get_span();
         last if defined $root_addr and $root_addr eq refaddr($span);
