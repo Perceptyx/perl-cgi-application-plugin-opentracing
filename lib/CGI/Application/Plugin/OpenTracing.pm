@@ -87,6 +87,13 @@ sub import {
 sub init {
     my $cgi_app = shift;
     
+    $cgi_app->{__PLUGINS}{OPENTRACING} = {
+        SCOPE  => undef,
+        TRACER => undef,
+    };
+    #
+    # to prevent warnings and errors about undefined HASH references
+    
     my @bootstrap_options = _app_get_bootstrap_options($cgi_app);
     _plugin_init_opentracing_implementation( $cgi_app, @bootstrap_options);
     
@@ -181,7 +188,7 @@ sub error {
 
 sub _plugin_get_tracer {
     my $cgi_app = shift;
-    return $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER}
+    return _get_plugin($cgi_app)->{TRACER}
 }
 
 sub _plugin_init_opentracing_implementation {
@@ -193,8 +200,7 @@ sub _plugin_init_opentracing_implementation {
     OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
     
     my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
-    
-    $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
+    _get_plugin($cgi_app)->{TRACER} = $tracer;
 }
 
 sub _plugin_start_active_span {
@@ -206,7 +212,7 @@ sub _plugin_start_active_span {
     my $scope =
     _tracer_start_active_span( $cgi_app, $operation_name, %params );
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name} = $scope;
+    _get_plugin($cgi_app)->{SCOPE}{$scope_name} = $scope;
 }
 
 sub _tracer_start_active_span {
@@ -224,7 +230,7 @@ sub _plugin_add_tags {
     my %tags           = @_;
     my $scope_name     = uc $operation_name;
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
+   _get_plugin($cgi_app)->{SCOPE}{$scope_name}
         ->get_span->add_tags(%tags);
 }
 
@@ -234,7 +240,7 @@ sub _plugin_add_baggage_items {
     my %baggage_items  = @_;
     my $scope_name     = uc $operation_name;
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}
+   _get_plugin($cgi_app)->{SCOPE}{$scope_name}
         ->get_span->add_baggage_items( %baggage_items );
 }
 
@@ -243,13 +249,13 @@ sub _plugin_close_scope {
     my $operation_name = shift;
     my $scope_name     = uc $operation_name;
     
-    $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{$scope_name}->close
+    _get_plugin($cgi_app)->{SCOPE}{$scope_name}->close
 }
 
 sub _plugin_get_scope {
     my $cgi_app        = shift;
     my $scope_name     = shift;
-    return $cgi_app->{__PLUGINS}{OPENTRACING}{SCOPE}{uc $scope_name};
+    return _get_plugin($cgi_app)->{SCOPE}{uc $scope_name};
 }
 
 
@@ -469,6 +475,22 @@ sub _tracer_extract_context {
     my $tracer = _plugin_get_tracer( $cgi_app );
     
     return $tracer->extract_context($http_headers)
+}
+
+
+
+################################################################################
+#
+#   CGI Application Plugin
+#
+################################################################################
+
+
+
+sub _get_plugin {
+    my $cgi_app = shift;
+    
+    return $cgi_app->{__PLUGINS}{OPENTRACING};
 }
 
 
