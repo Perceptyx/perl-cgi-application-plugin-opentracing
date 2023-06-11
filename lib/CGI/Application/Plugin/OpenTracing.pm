@@ -87,7 +87,8 @@ sub import {
 sub init {
     my $cgi_app = shift;
     
-    _plugin_init_opentracing_implementation( $cgi_app );
+    my @bootstrap_options = _app_get_bootstrap_options($cgi_app);
+    _plugin_init_opentracing_implementation( $cgi_app, @bootstrap_options);
     
     my %request_tags = _get_request_tags($cgi_app);
     my %query_params = _get_query_params($cgi_app);
@@ -185,9 +186,12 @@ sub _plugin_get_tracer {
 
 sub _plugin_init_opentracing_implementation {
     my $cgi_app = shift;
+    my @bootstrap_options = @_;
     
-    _init_global_tracer($cgi_app);
+    my $bootstrapped_tracer = _opentracing_init_tracer(@bootstrap_options);
 #       unless OpenTracing::GlobalTracer->is_registered;
+    OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
+    
     my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
     
     $cgi_app->{__PLUGINS}{OPENTRACING}{TRACER} = $tracer;
@@ -250,10 +254,16 @@ sub _plugin_get_scope {
 
 
 
-sub _init_global_tracer {
-    my $cgi_app = shift;
-    
-    my @bootstrap_options = _get_bootstrap_options($cgi_app);
+################################################################################
+#
+#   OpenTracing
+#
+################################################################################
+
+
+
+sub _opentracing_init_tracer {
+    my @bootstrap_options = @_;
     
     my $bootstrapped_tracer =
         $implementation_import_name ?
@@ -268,10 +278,8 @@ sub _init_global_tracer {
                 @bootstrap_options,
             )
     ;
-    
-    OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
-    
-    return
+        
+    return $bootstrapped_tracer;
 }
 
 
@@ -429,7 +437,7 @@ sub _get_http_status_tags {
 }
 
 
-sub _get_bootstrap_options {
+sub _app_get_bootstrap_options {
     my $cgi_app = shift;
     
     return unless $cgi_app->can('opentracing_bootstrap_options');
