@@ -97,7 +97,12 @@ sub init {
     my $plugin  = _get_plugin($cgi_app);
     
     my @bootstrap_options = _app_get_bootstrap_options($cgi_app);
-    _plugin_init_opentracing_implementation( $plugin, @bootstrap_options);
+    my $bootstrapped_tracer = _opentracing_init_tracer(@bootstrap_options);
+    #       unless OpenTracing::GlobalTracer->is_registered;
+    OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
+    
+    my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
+    $plugin->{TRACER} = $tracer;
     
     my %request_tags = _get_request_tags($cgi_app);
     my %query_params = _get_query_params($cgi_app);
@@ -205,18 +210,6 @@ sub _plugin_get_tracer {
     my $plugin = shift;
     
     return $plugin->{TRACER}
-}
-
-sub _plugin_init_opentracing_implementation {
-    my $plugin            = shift;
-    my @bootstrap_options = @_;
-    
-    my $bootstrapped_tracer = _opentracing_init_tracer(@bootstrap_options);
-#       unless OpenTracing::GlobalTracer->is_registered;
-    OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
-    
-    my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
-    $plugin->{TRACER} = $tracer;
 }
 
 sub _plugin_start_active_span {
