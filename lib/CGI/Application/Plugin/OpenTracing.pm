@@ -94,19 +94,21 @@ sub init {
     #
     # to prevent warnings and errors about undefined HASH references
     
+    my $plugin  = _get_plugin($cgi_app);
+    
     my @bootstrap_options = _app_get_bootstrap_options($cgi_app);
-    _plugin_init_opentracing_implementation( $cgi_app, @bootstrap_options);
+    _plugin_init_opentracing_implementation( $plugin, @bootstrap_options);
     
     my %request_tags = _get_request_tags($cgi_app);
     my %query_params = _get_query_params($cgi_app);
     my %form_data    = _get_form_data($cgi_app);
     my $context      = _tracer_extract_context( $cgi_app );
     
-    _plugin_start_active_span( $cgi_app, CGI_REQUEST, child_of => $context  );
-    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %request_tags         );
-    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %query_params         );
-    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %form_data            );
-    _plugin_start_active_span( $cgi_app, CGI_SETUP                          );
+    _plugin_start_active_span( $plugin, CGI_REQUEST, child_of => $context  );
+    _plugin_add_tags(          $plugin, CGI_REQUEST, %request_tags         );
+    _plugin_add_tags(          $plugin, CGI_REQUEST, %query_params         );
+    _plugin_add_tags(          $plugin, CGI_REQUEST, %form_data            );
+    _plugin_start_active_span( $plugin, CGI_SETUP                          );
     
     return
 }
@@ -116,14 +118,16 @@ sub init {
 sub prerun {
     my $cgi_app = shift;
     
+    my $plugin  = _get_plugin($cgi_app);
+    
     my %runmode_tags  = _get_runmode_tags($cgi_app);
     my %baggage_items = _get_baggage_items($cgi_app);
     
-    _plugin_add_baggage_items( $cgi_app, CGI_SETUP,   %baggage_items        );
-    _plugin_close_scope(       $cgi_app, CGI_SETUP                          );
-    _plugin_add_baggage_items( $cgi_app, CGI_REQUEST, %baggage_items        );
-    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %runmode_tags         );
-    _plugin_start_active_span( $cgi_app, CGI_RUN                            );
+    _plugin_add_baggage_items( $plugin, CGI_SETUP,   %baggage_items        );
+    _plugin_close_scope(       $plugin, CGI_SETUP                          );
+    _plugin_add_baggage_items( $plugin, CGI_REQUEST, %baggage_items        );
+    _plugin_add_tags(          $plugin, CGI_REQUEST, %runmode_tags         );
+    _plugin_start_active_span( $plugin, CGI_RUN                            );
     
     return
 }
@@ -133,8 +137,10 @@ sub prerun {
 sub postrun {
     my $cgi_app = shift;
     
-    _plugin_close_scope(       $cgi_app, CGI_RUN                            );
-    _plugin_start_active_span( $cgi_app, CGI_TEARDOWN                       );
+    my $plugin = _get_plugin($cgi_app);
+    
+    _plugin_close_scope(       $plugin, CGI_RUN                            );
+    _plugin_start_active_span( $plugin, CGI_TEARDOWN                       );
     
     return
 }
@@ -144,7 +150,9 @@ sub postrun {
 sub load_tmpl {
     my $cgi_app = shift;
     
-    _plugin_close_scope(       $cgi_app, CGI_LOAD_TMPL                      );
+    my $plugin = _get_plugin($cgi_app);
+    
+    _plugin_close_scope(       $plugin, CGI_LOAD_TMPL                      );
     
     return
 }
@@ -154,11 +162,13 @@ sub load_tmpl {
 sub teardown {
     my $cgi_app = shift;
     
+    my $plugin  = _get_plugin($cgi_app);
+    
     my %http_status_tags = _get_http_status_tags($cgi_app);
     
-    _plugin_close_scope(       $cgi_app, CGI_TEARDOWN                       );
-    _plugin_add_tags(          $cgi_app, CGI_REQUEST, %http_status_tags     );
-    _plugin_close_scope(       $cgi_app, CGI_REQUEST                        );
+    _plugin_close_scope(       $plugin, CGI_TEARDOWN                       );
+    _plugin_add_tags(          $plugin, CGI_REQUEST, %http_status_tags     );
+    _plugin_close_scope(       $plugin, CGI_REQUEST                        );
     
     return
 }
@@ -167,12 +177,15 @@ sub teardown {
 
 sub error {
     my ($cgi_app, $error) = @_;
-    return if not $cgi_app->error_mode();    # we're dying
-
-    # run span should continue
-    my $root = _plugin_get_scope($cgi_app, CGI_RUN)->get_span;
     
-    my $tracer = _plugin_get_tracer($cgi_app);
+    my $plugin  = _get_plugin($cgi_app);
+    
+    return if not $cgi_app->error_mode();    # we're dying
+    
+    # run span should continue
+    my $root = _plugin_get_scope($plugin, CGI_RUN)->get_span;
+    
+    my $tracer = _plugin_get_tracer($plugin);
     _cascade_set_failed_spans($tracer, $error, $root);
     
     return;
@@ -189,12 +202,13 @@ sub error {
 
 
 sub _plugin_get_tracer {
-    my $cgi_app = shift;
-    return _get_plugin($cgi_app)->{TRACER}
+    my $plugin = shift;
+    
+    return $plugin->{TRACER}
 }
 
 sub _plugin_init_opentracing_implementation {
-    my $cgi_app = shift;
+    my $plugin            = shift;
     my @bootstrap_options = @_;
     
     my $bootstrapped_tracer = _opentracing_init_tracer(@bootstrap_options);
@@ -202,53 +216,56 @@ sub _plugin_init_opentracing_implementation {
     OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
     
     my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
-    _get_plugin($cgi_app)->{TRACER} = $tracer;
+    $plugin->{TRACER} = $tracer;
 }
 
 sub _plugin_start_active_span {
-    my $cgi_app        = shift;
+    my $plugin         = shift;
     my $operation_name = shift;
     my %params         = @_;
+    
     my $scope_name     = uc $operation_name;
     
-    my $tracer = _plugin_get_tracer($cgi_app);
+    my $tracer = _plugin_get_tracer($plugin);
     my $scope = $tracer->start_active_span( $operation_name, %params );
     
-    _get_plugin($cgi_app)->{SCOPE}{$scope_name} = $scope;
+   $plugin->{SCOPE}{$scope_name} = $scope;
 }
 
 sub _plugin_add_tags {
-    my $cgi_app        = shift;
+    my $plugin         = shift;
     my $operation_name = shift;
     my %tags           = @_;
+    
     my $scope_name     = uc $operation_name;
     
-   _get_plugin($cgi_app)->{SCOPE}{$scope_name}
-        ->get_span->add_tags(%tags);
+   $plugin->{SCOPE}{$scope_name}->get_span->add_tags(%tags);
 }
 
 sub _plugin_add_baggage_items {
-    my $cgi_app        = shift;
+    my $plugin         = shift;
     my $operation_name = shift;
     my %baggage_items  = @_;
+    
     my $scope_name     = uc $operation_name;
     
-   _get_plugin($cgi_app)->{SCOPE}{$scope_name}
-        ->get_span->add_baggage_items( %baggage_items );
+   $plugin->{SCOPE}{$scope_name}->get_span->add_baggage_items( %baggage_items );
 }
 
 sub _plugin_close_scope {
-    my $cgi_app        = shift;
+    my $plugin         = shift;
     my $operation_name = shift;
+    
     my $scope_name     = uc $operation_name;
     
-    _get_plugin($cgi_app)->{SCOPE}{$scope_name}->close
+   $plugin->{SCOPE}{$scope_name}->close
 }
 
 sub _plugin_get_scope {
-    my $cgi_app        = shift;
+    my $plugin         = shift;
     my $scope_name     = shift;
-    return _get_plugin($cgi_app)->{SCOPE}{uc $scope_name};
+    
+    return $plugin->{SCOPE}{uc $scope_name};
 }
 
 
@@ -464,8 +481,10 @@ sub _get_baggage_items {
 sub _tracer_extract_context {
     my $cgi_app = shift;
     
+    my $plugin  = _get_plugin($cgi_app);
+    
     my $http_headers = _cgi_get_http_headers($cgi_app);
-    my $tracer = _plugin_get_tracer( $cgi_app );
+    my $tracer = _plugin_get_tracer($plugin);
     
     return $tracer->extract_context($http_headers)
 }
@@ -593,10 +612,12 @@ sub _wrap_run {
         
         $cgi_app->header_add(-status => '500');
         
-        my $request_span = _plugin_get_scope($cgi_app, CGI_REQUEST)->get_span;
+        my $plugin = _get_plugin($cgi_app);
+        
+        my $request_span = _plugin_get_scope($plugin, CGI_REQUEST)->get_span;
         $request_span->add_tags(_get_http_status_tags($cgi_app));
         
-        my $tracer = _plugin_get_tracer($cgi_app);
+        my $tracer = _plugin_get_tracer($plugin);
         _cascade_set_failed_spans($tracer, $error);
 
         die $error;
