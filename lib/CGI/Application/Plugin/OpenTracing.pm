@@ -80,7 +80,7 @@ sub new {
     my $class = shift;
     my %args  = @_;
     
-    my $tracer = delete $args{tracer};
+    my $tracer = delete $args{tracer} // OpenTracing::GlobalTracer->get_global_tracer();
     
     bless {
         SCOPE  => {
@@ -108,10 +108,7 @@ sub init {
     #       unless OpenTracing::GlobalTracer->is_registered;
     OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
     
-    my $tracer = OpenTracing::GlobalTracer->get_global_tracer();
-    my $plugin = __PACKAGE__->new(
-        tracer => $tracer 
-    );
+    my $plugin = __PACKAGE__->new( );
     $cgi_app->{__PLUGINS}{OPENTRACING} = $plugin;
     
     my %request_tags = _get_request_tags($cgi_app);
