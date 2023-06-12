@@ -111,10 +111,12 @@ sub init {
     my $plugin = __PACKAGE__->new( );
     $cgi_app->{__PLUGINS}{OPENTRACING} = $plugin;
     
+    my $tracer       = $plugin->get_tracer();
+    my $headers      = _cgi_get_http_headers($cgi_app);
+    my $context      = $tracer->extract_context($headers);
     my %request_tags = _get_request_tags($cgi_app);
     my %query_params = _get_query_params_tags($cgi_app);
     my %form_data    = _get_form_data_tags($cgi_app);
-    my $context      = _tracer_extract_context( $cgi_app );
     
     $plugin->start_active_span( CGI_REQUEST, child_of => $context  );
     $plugin->add_tags(          CGI_REQUEST, %request_tags         );
@@ -532,19 +534,6 @@ sub _app_get_baggage_items {
     
     
     return %baggage_items
-}
-
-
-
-sub _tracer_extract_context {
-    my $cgi_app = shift;
-    
-    my $plugin  = _get_plugin($cgi_app);
-    
-    my $http_headers = _cgi_get_http_headers($cgi_app);
-    my $tracer = $plugin->get_tracer();
-    
-    return $tracer->extract_context($http_headers)
 }
 
 
