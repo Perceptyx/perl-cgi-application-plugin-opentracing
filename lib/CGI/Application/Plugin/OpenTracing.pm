@@ -78,12 +78,15 @@ sub import {
 
 sub new {
     my $class = shift;
+    my %args  = @_;
+    
+    my $tracer = delete $args{tracer};
     
     bless {
         SCOPE  => {
             # one for each callback
         },
-        TRACER => undef,
+        TRACER => $tracer,
     }
 }
 
@@ -100,17 +103,16 @@ sub new {
 sub init {
     my $cgi_app = shift;
     
-    $cgi_app->{__PLUGINS}{OPENTRACING} = __PACKAGE__->new();
-    
-    my $plugin  = _get_plugin($cgi_app);
-    
     my @bootstrap_options = _app_get_bootstrap_options($cgi_app);
     my $bootstrapped_tracer = _opentracing_init_tracer(@bootstrap_options);
     #       unless OpenTracing::GlobalTracer->is_registered;
     OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
     
-    my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
-    $plugin->set_tracer($tracer);
+    my $tracer = OpenTracing::GlobalTracer->get_global_tracer();
+    my $plugin = __PACKAGE__->new(
+        tracer => $tracer 
+    );
+    $cgi_app->{__PLUGINS}{OPENTRACING} = $plugin;
     
     my %request_tags = _get_request_tags($cgi_app);
     my %query_params = _get_query_params($cgi_app);
