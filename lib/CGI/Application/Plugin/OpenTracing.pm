@@ -309,6 +309,22 @@ sub _opentracing_init_tracer {
 
 
 
+sub _cascade_set_failed_spans {
+    my ($tracer, $error, $root_span) = @_;
+    my $root_addr = refaddr($root_span) if defined $root_span;
+
+    while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
+        my $span = $scope->get_span();
+        last if defined $root_addr and $root_addr eq refaddr($span);
+
+        $span->add_tags(error => 1, message => $error);
+        $scope->close();
+    }
+    return;
+}
+
+
+
 ################################################################################
 #
 #   CGI – purely CGI related
@@ -671,21 +687,6 @@ sub _wrap_run {
     };
 }
 
-
-
-sub _cascade_set_failed_spans {
-    my ($tracer, $error, $root_span) = @_;
-    my $root_addr = refaddr($root_span) if defined $root_span;
-
-    while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
-        my $span = $scope->get_span();
-        last if defined $root_addr and $root_addr eq refaddr($span);
-
-        $span->add_tags(error => 1, message => $error);
-        $scope->close();
-    }
-    return;
-}
 
 
 1;
