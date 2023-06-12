@@ -112,8 +112,8 @@ sub init {
     $cgi_app->{__PLUGINS}{OPENTRACING} = $plugin;
     
     my %request_tags = _get_request_tags($cgi_app);
-    my %query_params = _get_query_params($cgi_app);
-    my %form_data    = _get_form_data($cgi_app);
+    my %query_params = _get_query_params_tags($cgi_app);
+    my %form_data    = _get_form_data_tags($cgi_app);
     my $context      = _tracer_extract_context( $cgi_app );
     
     $plugin->start_active_span( CGI_REQUEST, child_of => $context  );
@@ -133,7 +133,7 @@ sub prerun {
     my $plugin  = _get_plugin($cgi_app);
     
     my %runmode_tags  = _get_runmode_tags($cgi_app);
-    my %baggage_items = _get_baggage_items($cgi_app);
+    my %baggage_items = _app_get_baggage_items($cgi_app);
     
     $plugin->add_baggage_items( CGI_SETUP,   %baggage_items        );
     $plugin->close_scope(       CGI_SETUP                          );
@@ -307,6 +307,14 @@ sub _opentracing_init_tracer {
 
 
 
+################################################################################
+#
+#   CGI – purely CGI related
+#
+################################################################################
+
+
+
 sub _cgi_get_run_mode {
     my $cgi_app = shift;
     
@@ -328,7 +336,7 @@ sub _cgi_get_run_method {
 
 
 
-sub _cgi_get_http_method {
+sub _cgi_get_query_http_method {
     my $cgi_app = shift;
     
     my $query = $cgi_app->query();
@@ -337,13 +345,18 @@ sub _cgi_get_http_method {
 }
 
 
-sub _cgi_get_http_headers { # TODO: extract headers from CGI request
+
+# TODO: extract headers from CGI request
+#
+sub _cgi_get_http_headers {
     my $cgi_app = shift;
+    
     return HTTP::Headers->new();
 }
 
 
-sub _cgi_get_http_url {
+
+sub _cgi_get_query_http_url {
     my $cgi_app = shift;
     
     my $query = $cgi_app->query();
@@ -361,20 +374,30 @@ sub get_opentracing_global_tracer {
 
 
 
+################################################################################
+#
+#   Tags - getting the various tags for the request span
+#
+################################################################################
+
+
+
 sub _get_request_tags {
     my $cgi_app = shift;
     
     my %tags = (
               'component'   => 'CGI::Application',
-        maybe 'http.method' => _cgi_get_http_method($cgi_app),
-        maybe 'http.url'    => _cgi_get_http_url($cgi_app),
+        maybe 'http.method' => _cgi_get_query_http_method($cgi_app),
+        maybe 'http.url'    => _cgi_get_query_http_url($cgi_app),
     );
     
 
     return %tags
 }
 
-sub _get_query_params {
+
+
+sub _get_query_params_tags {
     my $cgi_app = shift;
     
     my $processor = _gen_tag_processor($cgi_app,
@@ -396,7 +419,9 @@ sub _get_query_params {
     return %processed_params;
 }
 
-sub _get_form_data {
+
+
+sub _get_form_data_tags {
     my $cgi_app = shift;
     my $query = $cgi_app->query();
     return unless _has_form_data($query);
@@ -439,6 +464,8 @@ sub _get_runmode_tags {
     return %tags
 }
 
+
+
 sub _get_http_status_tags {
     my $cgi_app = shift;
     
@@ -460,6 +487,15 @@ sub _get_http_status_tags {
 }
 
 
+
+################################################################################
+#
+#   App - specific routines that interact with the calling CGI-App
+#
+################################################################################
+
+
+
 sub _app_get_bootstrap_options {
     my $cgi_app = shift;
     
@@ -472,7 +508,7 @@ sub _app_get_bootstrap_options {
 
 
 
-sub _get_baggage_items {
+sub _app_get_baggage_items {
     my $cgi_app = shift;
     
     return unless $cgi_app->can('opentracing_baggage_items');
