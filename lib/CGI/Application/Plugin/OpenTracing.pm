@@ -110,18 +110,18 @@ sub init {
     OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
     
     my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
-    _plugin_set_tracer($plugin, $tracer);
+    $plugin->set_tracer($tracer);
     
     my %request_tags = _get_request_tags($cgi_app);
     my %query_params = _get_query_params($cgi_app);
     my %form_data    = _get_form_data($cgi_app);
     my $context      = _tracer_extract_context( $cgi_app );
     
-    _plugin_start_active_span( $plugin, CGI_REQUEST, child_of => $context  );
-    _plugin_add_tags(          $plugin, CGI_REQUEST, %request_tags         );
-    _plugin_add_tags(          $plugin, CGI_REQUEST, %query_params         );
-    _plugin_add_tags(          $plugin, CGI_REQUEST, %form_data            );
-    _plugin_start_active_span( $plugin, CGI_SETUP                          );
+    $plugin->start_active_span( CGI_REQUEST, child_of => $context  );
+    $plugin->add_tags(          CGI_REQUEST, %request_tags         );
+    $plugin->add_tags(          CGI_REQUEST, %query_params         );
+    $plugin->add_tags(          CGI_REQUEST, %form_data            );
+    $plugin->start_active_span( CGI_SETUP                          );
     
     return
 }
@@ -136,11 +136,11 @@ sub prerun {
     my %runmode_tags  = _get_runmode_tags($cgi_app);
     my %baggage_items = _get_baggage_items($cgi_app);
     
-    _plugin_add_baggage_items( $plugin, CGI_SETUP,   %baggage_items        );
-    _plugin_close_scope(       $plugin, CGI_SETUP                          );
-    _plugin_add_baggage_items( $plugin, CGI_REQUEST, %baggage_items        );
-    _plugin_add_tags(          $plugin, CGI_REQUEST, %runmode_tags         );
-    _plugin_start_active_span( $plugin, CGI_RUN                            );
+    $plugin->add_baggage_items( CGI_SETUP,   %baggage_items        );
+    $plugin->close_scope(       CGI_SETUP                          );
+    $plugin->add_baggage_items( CGI_REQUEST, %baggage_items        );
+    $plugin->add_tags(          CGI_REQUEST, %runmode_tags         );
+    $plugin->start_active_span( CGI_RUN                            );
     
     return
 }
@@ -152,8 +152,8 @@ sub postrun {
     
     my $plugin = _get_plugin($cgi_app);
     
-    _plugin_close_scope(       $plugin, CGI_RUN                            );
-    _plugin_start_active_span( $plugin, CGI_TEARDOWN                       );
+    $plugin->close_scope(       CGI_RUN                            );
+    $plugin->start_active_span( CGI_TEARDOWN                       );
     
     return
 }
@@ -165,7 +165,7 @@ sub load_tmpl {
     
     my $plugin = _get_plugin($cgi_app);
     
-    _plugin_close_scope(       $plugin, CGI_LOAD_TMPL                      );
+    $plugin->close_scope(       CGI_LOAD_TMPL                      );
     
     return
 }
@@ -179,9 +179,9 @@ sub teardown {
     
     my %http_status_tags = _get_http_status_tags($cgi_app);
     
-    _plugin_close_scope(       $plugin, CGI_TEARDOWN                       );
-    _plugin_add_tags(          $plugin, CGI_REQUEST, %http_status_tags     );
-    _plugin_close_scope(       $plugin, CGI_REQUEST                        );
+    $plugin->close_scope(       CGI_TEARDOWN                       );
+    $plugin->add_tags(          CGI_REQUEST, %http_status_tags     );
+    $plugin->close_scope(       CGI_REQUEST                        );
     
     return
 }
@@ -196,9 +196,9 @@ sub error {
     return if not $cgi_app->error_mode();    # we're dying
     
     # run span should continue
-    my $root = _plugin_get_scope($plugin, CGI_RUN)->get_span;
+    my $root = $plugin->get_scope(CGI_RUN)->get_span;
     
-    my $tracer = _plugin_get_tracer($plugin);
+    my $tracer = $plugin->get_tracer();
     _cascade_set_failed_spans($tracer, $error, $root);
     
     return;
@@ -214,33 +214,33 @@ sub error {
 
 
 
-sub _plugin_set_tracer {
+sub set_tracer {
     my $plugin = shift;
     my $tracer = shift;
     
     $plugin->{TRACER} = $tracer;
 }
 
-sub _plugin_get_tracer {
+sub get_tracer {
     my $plugin = shift;
     
     return $plugin->{TRACER}
 }
 
-sub _plugin_start_active_span {
+sub start_active_span {
     my $plugin         = shift;
     my $operation_name = shift;
     my %params         = @_;
     
     my $scope_name     = uc $operation_name;
     
-    my $tracer = _plugin_get_tracer($plugin);
+    my $tracer = $plugin->get_tracer();
     my $scope = $tracer->start_active_span( $operation_name, %params );
     
    $plugin->{SCOPE}{$scope_name} = $scope;
 }
 
-sub _plugin_add_tags {
+sub add_tags {
     my $plugin         = shift;
     my $operation_name = shift;
     my %tags           = @_;
@@ -250,7 +250,7 @@ sub _plugin_add_tags {
    $plugin->{SCOPE}{$scope_name}->get_span->add_tags(%tags);
 }
 
-sub _plugin_add_baggage_items {
+sub add_baggage_items {
     my $plugin         = shift;
     my $operation_name = shift;
     my %baggage_items  = @_;
@@ -260,7 +260,7 @@ sub _plugin_add_baggage_items {
    $plugin->{SCOPE}{$scope_name}->get_span->add_baggage_items( %baggage_items );
 }
 
-sub _plugin_close_scope {
+sub close_scope {
     my $plugin         = shift;
     my $operation_name = shift;
     
@@ -269,7 +269,7 @@ sub _plugin_close_scope {
    $plugin->{SCOPE}{$scope_name}->close
 }
 
-sub _plugin_get_scope {
+sub get_scope {
     my $plugin         = shift;
     my $scope_name     = shift;
     
@@ -492,7 +492,7 @@ sub _tracer_extract_context {
     my $plugin  = _get_plugin($cgi_app);
     
     my $http_headers = _cgi_get_http_headers($cgi_app);
-    my $tracer = _plugin_get_tracer($plugin);
+    my $tracer = $plugin->get_tracer();
     
     return $tracer->extract_context($http_headers)
 }
@@ -622,10 +622,10 @@ sub _wrap_run {
         
         my $plugin = _get_plugin($cgi_app);
         
-        my $request_span = _plugin_get_scope($plugin, CGI_REQUEST)->get_span;
+        my $request_span = $plugin->get_scope(CGI_REQUEST)->get_span;
         $request_span->add_tags(_get_http_status_tags($cgi_app));
         
-        my $tracer = _plugin_get_tracer($plugin);
+        my $tracer = $plugin->get_tracer();
         _cascade_set_failed_spans($tracer, $error);
 
         die $error;
