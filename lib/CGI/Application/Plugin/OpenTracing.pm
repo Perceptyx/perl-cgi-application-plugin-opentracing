@@ -102,7 +102,7 @@ sub init {
     OpenTracing::GlobalTracer->set_global_tracer( $bootstrapped_tracer );
     
     my $tracer = OpenTracing::GlobalTracer->get_global_tracer;
-    $plugin->{TRACER} = $tracer;
+    _plugin_set_tracer($plugin, $tracer);
     
     my %request_tags = _get_request_tags($cgi_app);
     my %query_params = _get_query_params($cgi_app);
@@ -205,6 +205,13 @@ sub error {
 ################################################################################
 
 
+
+sub _plugin_set_tracer {
+    my $plugin = shift;
+    my $tracer = shift;
+    
+    $plugin->{TRACER} = $tracer;
+}
 
 sub _plugin_get_tracer {
     my $plugin = shift;
