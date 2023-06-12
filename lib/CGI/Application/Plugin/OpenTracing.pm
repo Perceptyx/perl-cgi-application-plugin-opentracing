@@ -207,7 +207,7 @@ sub error {
 
 ################################################################################
 #
-#   Plugin methods
+#   Plugin methods - These do not require the CGI-App
 #
 ################################################################################
 
@@ -336,22 +336,30 @@ sub _cgi_get_run_method {
 
 
 
-sub _cgi_get_query_http_method {
-    my $cgi_app = shift;
-    
-    my $query = $cgi_app->query();
-    
-    return $query->request_method();
-}
-
-
-
 # TODO: extract headers from CGI request
 #
 sub _cgi_get_http_headers {
     my $cgi_app = shift;
     
     return HTTP::Headers->new();
+}
+
+
+
+################################################################################
+#
+#   CGI Query – operates indirectly on CGI->Query
+#
+################################################################################
+
+
+
+sub _cgi_get_query_http_method {
+    my $cgi_app = shift;
+    
+    my $query = $cgi_app->query();
+    
+    return $query->request_method();
 }
 
 
@@ -423,8 +431,7 @@ sub _get_query_params_tags {
 
 sub _get_form_data_tags {
     my $cgi_app = shift;
-    my $query = $cgi_app->query();
-    return unless _has_form_data($query);
+    return unless _cgi_query_content_type_is_form($cgi_app);
     
     my $processor = _gen_tag_processor($cgi_app,
         $cgi_app->can('opentracing_process_tags_form_fields'),
@@ -445,8 +452,10 @@ sub _get_form_data_tags {
     return %processed_params;
 }
 
-sub _has_form_data {
-    my ($query) = @_;
+sub _cgi_query_content_type_is_form {
+    my $cgi_app = shift;
+    
+    my $query = $cgi_app->query();
     my $content_type = $query->content_type();
     return   if not defined $content_type;
     return 1 if $content_type =~ m{\Amultipart/form-data};
