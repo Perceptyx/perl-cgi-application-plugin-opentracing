@@ -374,6 +374,21 @@ sub _cgi_get_query_http_url {
 
 
 
+sub _cgi_get_query_content_type_is_form {
+    my $cgi_app = shift;
+    
+    my $query = $cgi_app->query();
+    
+    my $content_type = $query->content_type();
+    
+    return   if not defined $content_type;
+    return 1 if $content_type =~ m{\Amultipart/form-data};
+    return 1 if $content_type =~ m{\Aapplication/x-www-form-urlencoded};
+    return;
+}
+
+
+
 =for not_implemented
 sub get_opentracing_global_tracer {
     OpenTracing::GlobalTracer->get_global_tracer()
@@ -431,7 +446,7 @@ sub _get_query_params_tags {
 
 sub _get_form_data_tags {
     my $cgi_app = shift;
-    return unless _cgi_query_content_type_is_form($cgi_app);
+    return unless _cgi_get_query_content_type_is_form($cgi_app);
     
     my $processor = _gen_tag_processor($cgi_app,
         $cgi_app->can('opentracing_process_tags_form_fields'),
@@ -452,16 +467,7 @@ sub _get_form_data_tags {
     return %processed_params;
 }
 
-sub _cgi_query_content_type_is_form {
-    my $cgi_app = shift;
-    
-    my $query = $cgi_app->query();
-    my $content_type = $query->content_type();
-    return   if not defined $content_type;
-    return 1 if $content_type =~ m{\Amultipart/form-data};
-    return 1 if $content_type =~ m{\Aapplication/x-www-form-urlencoded};
-    return;
-}
+
 
 sub _get_runmode_tags {
     my $cgi_app = shift;
