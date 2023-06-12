@@ -76,6 +76,19 @@ sub import {
 
 
 
+sub new {
+    my $class = shift;
+    
+    bless {
+        SCOPE  => {
+            # one for each callback
+        },
+        TRACER => undef,
+    }
+}
+
+
+
 ################################################################################
 #
 #   Callbacks
@@ -87,12 +100,7 @@ sub import {
 sub init {
     my $cgi_app = shift;
     
-    $cgi_app->{__PLUGINS}{OPENTRACING} = {
-        SCOPE  => undef,
-        TRACER => undef,
-    };
-    #
-    # to prevent warnings and errors about undefined HASH references
+    $cgi_app->{__PLUGINS}{OPENTRACING} = __PACKAGE__->new();
     
     my $plugin  = _get_plugin($cgi_app);
     
