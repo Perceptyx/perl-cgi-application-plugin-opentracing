@@ -407,14 +407,6 @@ sub _cgi_get_query_content_type_is_form {
 
 
 
-=for not_implemented
-sub get_opentracing_global_tracer {
-    OpenTracing::GlobalTracer->get_global_tracer()
-}
-=cut
-
-
-
 ################################################################################
 #
 #   Tags - getting the various tags for the request span
