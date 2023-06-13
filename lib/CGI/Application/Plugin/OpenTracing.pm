@@ -200,7 +200,11 @@ sub error {
     $plugin->add_tags(CGI_REQUEST, _get_http_status_tags($cgi_app));
 #   $request_span->add_tags(error => 1, message => $error);
     
-    $plugin->add_tags(TRC_ACTIVE_SCOPE, error => 1, message => $error);
+    $plugin->add_tags(TRC_ACTIVE_SCOPE,
+        error   => 1,
+        message => $error,
+        grep_error_tags( $plugin->get_tags(TRC_ACTIVE_SCOPE) ),
+    );
     
     # run span should continue
     my $root = $plugin->get_scope(CGI_RUN)->get_span;
@@ -697,9 +701,18 @@ sub _wrap_run {
         
         my $plugin = _get_plugin($cgi_app);
         
-        $plugin->add_tags(CGI_REQUEST,      _get_http_status_tags($cgi_app) );
-        $plugin->add_tags(CGI_REQUEST,      error => 1, message => $error   );
-        $plugin->add_tags(TRC_ACTIVE_SCOPE, error => 1, message => $error   );
+        $plugin->add_tags(CGI_REQUEST,
+            _get_http_status_tags($cgi_app),
+            grep_error_tags( $plugin->get_tags(TRC_ACTIVE_SCOPE) ),
+            error   => 1,
+            message => $error,
+        );
+        
+        $plugin->add_tags(TRC_ACTIVE_SCOPE,
+            error   => 1,
+            message => $error,
+            grep_error_tags( $plugin->get_tags(TRC_ACTIVE_SCOPE) ),
+        );
         
         my $tracer = $plugin->get_tracer();
         _cascade_set_failed_spans($tracer, $error);
