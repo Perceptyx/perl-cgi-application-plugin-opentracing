@@ -12,7 +12,7 @@ use OpenTracing::GlobalTracer;
 
 use Carp qw( croak carp );
 use HTTP::Headers;
-use HTTP::Status;
+use HTTP::Status qw( is_server_error );
 use Scalar::Util qw( refaddr );
 use Time::HiRes qw( gettimeofday );
 
@@ -199,6 +199,8 @@ sub error {
     
     $plugin->add_tags(CGI_REQUEST, _get_http_status_tags($cgi_app));
 #   $request_span->add_tags(error => 1, message => $error);
+        if is_server_error($cgi_app)
+
     
     $plugin->add_tags(TRC_ACTIVE_SCOPE,
         error   => 1,
@@ -392,6 +394,23 @@ sub _cgi_get_http_headers {
     my $cgi_app = shift;
     
     return HTTP::Headers->new();
+}
+
+
+
+sub _cgi_get_header_status {
+    my $cgi_app = shift;
+
+    my %headers = $cgi_app->header_props();
+    my $status = $headers{-status};
+    
+    return $status
+        unless wantarray;
+    
+    my $status_code = [ ( $status // '' ) =~ /^\s*(\d{3})/ ]->[0];
+    my $status_mess = [ ( $status // '' ) =~ /^\s*\d{3}\s*(.+)\s*$/ ]->[0];
+    
+    return ($status_code, $status_mess);
 }
 
 
