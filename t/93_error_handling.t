@@ -132,6 +132,7 @@ global_tracer_cmp_easy(
                 'run_method'            => 'method_two',
                 'error'                 => 1,
                 'message'               => re(qr/Inside Die/),
+                'error.kind'            => "MY_ERROR_TYPE"
             },      
         },
         {
@@ -149,7 +150,8 @@ global_tracer_cmp_easy(
             level                   => 3,
             tags                    => {
                 'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
+                'message'               => re(qr/Can't continue here .../),
+                'error.kind'            => "MY_ERROR_TYPE"
             },
         },
     ], 'CGI::App [WithErrorBase/run_mode_two], dies "Inside Die" at [level_one/level_two/inside_die]'
@@ -323,7 +325,8 @@ global_tracer_cmp_easy(
             level                   => 3,
             tags                    => {
                 'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
+                'message'               => re(qr/Can't continue here .../),
+                'error.kind'            => "MY_ERROR_TYPE"
             },
         },
     ], 'CGI::App [WithErrorMode/run_mode_two], dies "Inside Die" at [level_one/level_two/inside_die]'
