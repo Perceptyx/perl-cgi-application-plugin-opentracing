@@ -180,9 +180,12 @@ sub teardown {
     my $plugin  = _get_plugin($cgi_app);
     
     my %http_status_tags = _get_http_status_tags($cgi_app);
+    my $error = 1
+        if is_server_error([_cgi_get_header_status($cgi_app)]->[0]);
     
     $plugin->close_scope(       CGI_TEARDOWN                       );
     $plugin->add_tags(          CGI_REQUEST, %http_status_tags     );
+    $plugin->add_tags(          CGI_REQUEST, maybe error => $error );
     $plugin->close_scope(       CGI_REQUEST                        );
     
     return
