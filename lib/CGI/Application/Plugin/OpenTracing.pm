@@ -12,7 +12,7 @@ use OpenTracing::GlobalTracer;
 
 use Carp qw( croak carp );
 use HTTP::Headers;
-use HTTP::Status;
+use HTTP::Status qw( is_server_error );
 use Scalar::Util qw( refaddr );
 use Time::HiRes qw( gettimeofday );
 
@@ -180,9 +180,12 @@ sub teardown {
     my $plugin  = _get_plugin($cgi_app);
     
     my %http_status_tags = _get_http_status_tags($cgi_app);
+    my $error = 1
+        if is_server_error([_cgi_get_header_status($cgi_app)]->[0]);
     
     $plugin->close_scope(       CGI_TEARDOWN                       );
     $plugin->add_tags(          CGI_REQUEST, %http_status_tags     );
+    $plugin->add_tags(          CGI_REQUEST, maybe error => $error );
     $plugin->close_scope(       CGI_REQUEST                        );
     
     return
@@ -196,6 +199,12 @@ sub error {
     my $plugin  = _get_plugin($cgi_app);
     
     return if not $cgi_app->error_mode();    # we're dying
+    
+    $plugin->add_tags(TRC_ACTIVE_SCOPE,
+        error   => 1,
+        message => $error,
+        grep_error_tags( $plugin->get_tags(TRC_ACTIVE_SCOPE) ),
+    );
     
     # run span should continue
     my $root = $plugin->get_scope(CGI_RUN)->get_span;
@@ -248,6 +257,13 @@ sub add_tags {
     my %tags           = @_;
     
    $plugin->get_span($scope_name)->add_tags(%tags);
+}
+
+sub get_tags {
+    my $plugin         = shift;
+    my $scope_name     = shift;
+    
+   $plugin->get_span($scope_name)->get_tags();
 }
 
 sub add_baggage_items {
@@ -321,13 +337,24 @@ sub _cascade_set_failed_spans {
     while (my $scope = $tracer->get_scope_manager->get_active_scope()) {
         my $span = $scope->get_span();
         last if defined $root_addr and $root_addr eq refaddr($span);
-
-        $span->add_tags(error => 1, message => $error);
+        
+#       $span->add_tags(error => 1, message => $error);
         $scope->close();
     }
     return;
 }
 
+
+
+sub grep_error_tags {
+    my %tags = @_;
+    
+    return (
+        maybe 'error'      => $tags{'error'},
+        maybe 'message'    => $tags{'message'},
+        maybe 'error.kind' => $tags{'error.kind'},
+    )
+}
 
 
 ################################################################################
@@ -365,6 +392,23 @@ sub _cgi_get_http_headers {
     my $cgi_app = shift;
     
     return HTTP::Headers->new();
+}
+
+
+
+sub _cgi_get_header_status {
+    my $cgi_app = shift;
+
+    my %headers = $cgi_app->header_props();
+    my $status = $headers{-status};
+    
+    return $status
+        unless wantarray;
+    
+    my $status_code = [ ( $status // '' ) =~ /^\s*(\d{3})/ ]->[0];
+    my $status_mess = [ ( $status // '' ) =~ /^\s*\d{3}\s*(.+)\s*$/ ]->[0];
+    
+    return ($status_code, $status_mess);
 }
 
 
@@ -499,12 +543,11 @@ sub _get_runmode_tags {
 sub _get_http_status_tags {
     my $cgi_app = shift;
     
-    my %headers = $cgi_app->header_props();
-    my $status = $headers{-status} or return (
+    my ($status_code, $status_mess) = _cgi_get_header_status($cgi_app);
+    
+    return (
         'http.status_code'    => '200',
-    );
-    my $status_code = [ $status =~ /^\s*(\d{3})/ ]->[0];
-    my $status_mess = [ $status =~ /^\s*\d{3}\s*(.+)\s*$/ ]->[0];
+    ) unless defined $status_code;
     
     $status_mess = HTTP::Status::status_message($status_code)
         unless defined $status_mess;
@@ -674,8 +717,18 @@ sub _wrap_run {
         
         my $plugin = _get_plugin($cgi_app);
         
-        my $request_span = $plugin->get_scope(CGI_REQUEST)->get_span;
-        $request_span->add_tags(_get_http_status_tags($cgi_app));
+        $plugin->add_tags(CGI_REQUEST,
+            _get_http_status_tags($cgi_app),
+            grep_error_tags( $plugin->get_tags(TRC_ACTIVE_SCOPE) ),
+            error   => 1,
+            message => $error,
+        );
+        
+        $plugin->add_tags(TRC_ACTIVE_SCOPE,
+            error   => 1,
+            message => $error,
+            grep_error_tags( $plugin->get_tags(TRC_ACTIVE_SCOPE) ),
+        );
         
         my $tracer = $plugin->get_tracer();
         _cascade_set_failed_spans($tracer, $error);

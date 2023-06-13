@@ -99,10 +99,7 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {
-                'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
-            },
+            tags                    => { },
         },
         {
             operation_name          => 'level_one',
@@ -135,33 +132,29 @@ global_tracer_cmp_easy(
                 'run_method'            => 'method_two',
                 'error'                 => 1,
                 'message'               => re(qr/Inside Die/),
+                'error.kind'            => "MY_ERROR_TYPE"
             },      
         },
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {
-                'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
-            },
+            tags                    => { },
         },
         {
             operation_name          => 'level_one',
             level                   => 2,
-            tags                    => {
-                'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
-            },
+            tags                    => { },
         },
         {
             operation_name          => 'level_two',
             level                   => 3,
             tags                    => {
                 'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
+                'message'               => re(qr/Can't continue here .../),
+                'error.kind'            => "MY_ERROR_TYPE"
             },
         },
-    ], 'CGI::App [WithErrorBase/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
+    ], 'CGI::App [WithErrorBase/run_mode_two], dies "Inside Die" at [level_one/level_two/inside_die]'
 );
 
 
@@ -253,7 +246,10 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {},
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Method Die/),
+            },
         },
     ], 'CGI::App [WithErrorMode/run_mode_die], dies "Method Die" at [method_die]'
 );
@@ -281,7 +277,7 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {},
+            tags                    => { },
         },
         {
             operation_name          => 'level_one',
@@ -317,25 +313,72 @@ global_tracer_cmp_easy(
         {
             operation_name          => 'cgi_application_run',
             level                   => 1,
-            tags                    => {},
+            tags                    => { },
         },
         {
             operation_name          => 'level_one',
             level                   => 2,
-            tags                    => {
-                'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
-            },
+            tags                    => { },
         },
         {
             operation_name          => 'level_two',
             level                   => 3,
             tags                    => {
                 'error'                 => 1,
-                'message'               => re(qr/Inside Die/),
+                'message'               => re(qr/Can't continue here .../),
+                'error.kind'            => "MY_ERROR_TYPE"
             },
         },
-    ], 'CGI::App [WithErrorBase/run_mode_one], dies "Inside Die" at [level_one/inside_die]'
+    ], 'CGI::App [WithErrorMode/run_mode_two], dies "Inside Die" at [level_one/level_two/inside_die]'
+);
+
+
+
+lives_ok {
+    $mech->app('MyTest::WithErrorSrvr');
+} "Set Test::WWW::Mechanize app to 'MyTest::WithErrorSrvr'";
+
+
+
+eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_two') };
+
+global_tracer_cmp_easy(
+    [
+        {
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_two',
+                'http.status_code'      => 502,
+                'http.status_message'   => "Bad Gateway",
+                'run_mode'              => 'run_mode_two',
+                'run_method'            => 'method_two',
+                'error'                 => 1,
+            },      
+        },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+            tags                    => { },
+        },
+        {
+            operation_name          => 'level_one',
+            level                   => 2,
+            tags                    => { },
+        },
+        {
+            operation_name          => 'level_two',
+            level                   => 3,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Can't continue here .../),
+                'error.kind'            => "MY_ERROR_TYPE"
+            },
+        },
+    ], 'CGI::App [WithErrorSrvr/run_mode_two], dies "Inside Die" at [level_one/level_two/inside_die]'
 );
 
 
@@ -373,7 +416,17 @@ sub method_204 { $_[0]->header_add(-status => '204') }
 
 sub inside_two {
     my $scope = $TRACER->start_active_span('level_two');
-    inside_die();
+    eval {
+        inside_die();
+    };
+    if ( my $error = $@ ) {
+        $scope->get_span()->add_tags(
+            'error'      => 1,
+            'message'    => "Can't continue here ...",
+            'error.kind' => "MY_ERROR_TYPE"
+        );
+        die $error;
+    }
 }
 
 sub inside_die { die 'Something wrong within "Inside Die"' }
@@ -391,4 +444,18 @@ sub show_error {
     $self->header_add(-status => '402');
 
     return 'Pay up'
+}
+
+
+package MyTest::WithErrorSrvr;
+use base 'MyTest::WithErrorBase';
+
+sub cgiapp_init { $_[0]->error_mode('show_error') }
+
+sub show_error {
+    my $self = shift;
+
+    $self->header_add(-status => '502');
+
+    return 'Something bad is happening'
 }
