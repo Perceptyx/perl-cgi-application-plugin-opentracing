@@ -16,11 +16,12 @@ use HTTP::Status;
 use Scalar::Util qw( refaddr );
 use Time::HiRes qw( gettimeofday );
 
-use constant CGI_LOAD_TMPL => 'CGI_APPLICATION_LOAD_TMPL';
-use constant CGI_REQUEST   => 'CGI_APPLICATION_REQUEST';
-use constant CGI_RUN       => 'CGI_APPLICATION_RUN';
-use constant CGI_SETUP     => 'CGI_APPLICATION_SETUP';
-use constant CGI_TEARDOWN  => 'CGI_APPLICATION_TEARDOWN';
+use constant CGI_LOAD_TMPL    => 'CGI_APPLICATION_LOAD_TMPL';
+use constant CGI_REQUEST      => 'CGI_APPLICATION_REQUEST';
+use constant CGI_RUN          => 'CGI_APPLICATION_RUN';
+use constant CGI_SETUP        => 'CGI_APPLICATION_SETUP';
+use constant CGI_TEARDOWN     => 'CGI_APPLICATION_TEARDOWN';
+use constant TRC_ACTIVE_SCOPE => 'TRC_SCOPEMANAGER_ACTIVE_SCOPE';
 
 our $implementation_import_name;
 our @implementation_import_opts;
@@ -274,6 +275,9 @@ sub get_span {
 sub get_scope {
     my $plugin         = shift;
     my $scope_name     = shift;
+    
+    return $plugin->get_tracer()->get_scope_manager->get_active_scope()
+        if $scope_name eq TRC_ACTIVE_SCOPE;
     
     return $plugin->{SCOPE}{$scope_name};
 }
