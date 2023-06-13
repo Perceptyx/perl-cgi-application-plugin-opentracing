@@ -246,7 +246,7 @@ sub add_tags {
     my $scope_name     = shift;
     my %tags           = @_;
     
-   $plugin->{SCOPE}{$scope_name}->get_span->add_tags(%tags);
+   $plugin->get_scope($scope_name)->get_span->add_tags(%tags);
 }
 
 sub add_baggage_items {
@@ -254,14 +254,14 @@ sub add_baggage_items {
     my $scope_name     = shift;
     my %baggage_items  = @_;
     
-   $plugin->{SCOPE}{$scope_name}->get_span->add_baggage_items( %baggage_items );
+   $plugin->get_scope($scope_name)->get_span->add_baggage_items( %baggage_items );
 }
 
 sub close_scope {
     my $plugin         = shift;
     my $scope_name     = shift;
     
-   $plugin->{SCOPE}{$scope_name}->close
+   $plugin->get_scope($scope_name)->close
 }
 
 sub get_scope {
