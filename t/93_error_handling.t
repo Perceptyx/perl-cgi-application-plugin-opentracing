@@ -368,6 +368,11 @@ sub inside_two {
         inside_die();
     };
     if ( my $error = $@ ) {
+        $scope->get_span()->add_tags(
+            'error'      => 1,
+            'message'    => "Can't continue here ...",
+            'error.kind' => "MY_ERROR_TYPE"
+        );
         die $error;
     }
 }
