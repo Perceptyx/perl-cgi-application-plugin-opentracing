@@ -545,12 +545,11 @@ sub _get_runmode_tags {
 sub _get_http_status_tags {
     my $cgi_app = shift;
     
-    my %headers = $cgi_app->header_props();
-    my $status = $headers{-status} or return (
+    my ($status_code, $status_mess) = _cgi_get_header_status($cgi_app);
+    
+    return (
         'http.status_code'    => '200',
-    );
-    my $status_code = [ $status =~ /^\s*(\d{3})/ ]->[0];
-    my $status_mess = [ $status =~ /^\s*\d{3}\s*(.+)\s*$/ ]->[0];
+    ) unless defined $status_code;
     
     $status_mess = HTTP::Status::status_message($status_code)
         unless defined $status_mess;
