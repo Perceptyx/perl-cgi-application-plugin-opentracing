@@ -342,6 +342,17 @@ sub _cascade_set_failed_spans {
 
 
 
+sub grep_error_tags {
+    my %tags = @_;
+    
+    return (
+        maybe 'error'      => $tags{'error'},
+        maybe 'message'    => $tags{'message'},
+        maybe 'error.kind' => $tags{'error.kind'},
+    )
+}
+
+
 ################################################################################
 #
 #   CGI – purely CGI related
