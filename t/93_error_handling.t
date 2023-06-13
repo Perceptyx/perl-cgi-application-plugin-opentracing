@@ -364,7 +364,12 @@ sub method_204 { $_[0]->header_add(-status => '204') }
 
 sub inside_two {
     my $scope = $TRACER->start_active_span('level_two');
-    inside_die();
+    eval {
+        inside_die();
+    };
+    if ( my $error = $@ ) {
+        die $error;
+    }
 }
 
 sub inside_die { die 'Something wrong within "Inside Die"' }
