@@ -334,6 +334,55 @@ global_tracer_cmp_easy(
 
 
 
+lives_ok {
+    $mech->app('MyTest::WithErrorSrvr');
+} "Set Test::WWW::Mechanize app to 'MyTest::WithErrorSrvr'";
+
+
+
+eval { $mech->get('https://test.tst/test.cgi?rm=run_mode_two') };
+
+global_tracer_cmp_easy(
+    [
+        {
+            operation_name          => 'cgi_application_request',
+            level                   => 0,
+            tags                    => {
+                'component'             => 'CGI::Application',
+                'http.method'           => 'GET',
+                'http.url'              => 'https://test.tst/test.cgi',
+                'http.query.rm'         => 'run_mode_two',
+                'http.status_code'      => 502,
+                'http.status_message'   => "Bad Gateway",
+                'run_mode'              => 'run_mode_two',
+                'run_method'            => 'method_two',
+                'error'                 => 1,
+            },      
+        },
+        {
+            operation_name          => 'cgi_application_run',
+            level                   => 1,
+            tags                    => { },
+        },
+        {
+            operation_name          => 'level_one',
+            level                   => 2,
+            tags                    => { },
+        },
+        {
+            operation_name          => 'level_two',
+            level                   => 3,
+            tags                    => {
+                'error'                 => 1,
+                'message'               => re(qr/Can't continue here .../),
+                'error.kind'            => "MY_ERROR_TYPE"
+            },
+        },
+    ], 'CGI::App [WithErrorSrvr/run_mode_two], dies "Inside Die" at [level_one/level_two/inside_die]'
+);
+
+
+
 done_testing();
 
 
@@ -395,4 +444,18 @@ sub show_error {
     $self->header_add(-status => '402');
 
     return 'Pay up'
+}
+
+
+package MyTest::WithErrorSrvr;
+use base 'MyTest::WithErrorBase';
+
+sub cgiapp_init { $_[0]->error_mode('show_error') }
+
+sub show_error {
+    my $self = shift;
+
+    $self->header_add(-status => '502');
+
+    return 'Something bad is happening'
 }
