@@ -255,6 +255,13 @@ sub add_tags {
    $plugin->get_span($scope_name)->add_tags(%tags);
 }
 
+sub get_tags {
+    my $plugin         = shift;
+    my $scope_name     = shift;
+    
+   $plugin->get_span($scope_name)->get_tags();
+}
+
 sub add_baggage_items {
     my $plugin         = shift;
     my $scope_name     = shift;
