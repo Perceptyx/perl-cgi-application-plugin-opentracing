@@ -197,11 +197,6 @@ sub error {
     
     return if not $cgi_app->error_mode();    # we're dying
     
-    $plugin->add_tags(CGI_REQUEST, _get_http_status_tags($cgi_app));
-#   $request_span->add_tags(error => 1, message => $error);
-        if is_server_error($cgi_app)
-
-    
     $plugin->add_tags(TRC_ACTIVE_SCOPE,
         error   => 1,
         message => $error,
