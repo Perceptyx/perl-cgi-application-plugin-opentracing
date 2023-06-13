@@ -16,11 +16,11 @@ use HTTP::Status;
 use Scalar::Util qw( refaddr );
 use Time::HiRes qw( gettimeofday );
 
-use constant CGI_LOAD_TMPL => 'cgi_application_load_tmpl';
-use constant CGI_REQUEST   => 'cgi_application_request';
-use constant CGI_RUN       => 'cgi_application_run';
-use constant CGI_SETUP     => 'cgi_application_setup';
-use constant CGI_TEARDOWN  => 'cgi_application_teardown';
+use constant CGI_LOAD_TMPL => 'CGI_APPLICATION_LOAD_TMPL';
+use constant CGI_REQUEST   => 'CGI_APPLICATION_REQUEST';
+use constant CGI_RUN       => 'CGI_APPLICATION_RUN';
+use constant CGI_SETUP     => 'CGI_APPLICATION_SETUP';
+use constant CGI_TEARDOWN  => 'CGI_APPLICATION_TEARDOWN';
 
 our $implementation_import_name;
 our @implementation_import_opts;
@@ -230,10 +230,10 @@ sub get_tracer {
 
 sub start_active_span {
     my $plugin         = shift;
-    my $operation_name = shift;
+    my $scope_name     = shift;
     my %params         = @_;
     
-    my $scope_name     = uc $operation_name;
+    my $operation_name = lc $scope_name;
     
     my $tracer = $plugin->get_tracer();
     my $scope = $tracer->start_active_span( $operation_name, %params );
@@ -243,29 +243,23 @@ sub start_active_span {
 
 sub add_tags {
     my $plugin         = shift;
-    my $operation_name = shift;
+    my $scope_name     = shift;
     my %tags           = @_;
-    
-    my $scope_name     = uc $operation_name;
     
    $plugin->{SCOPE}{$scope_name}->get_span->add_tags(%tags);
 }
 
 sub add_baggage_items {
     my $plugin         = shift;
-    my $operation_name = shift;
+    my $scope_name     = shift;
     my %baggage_items  = @_;
-    
-    my $scope_name     = uc $operation_name;
     
    $plugin->{SCOPE}{$scope_name}->get_span->add_baggage_items( %baggage_items );
 }
 
 sub close_scope {
     my $plugin         = shift;
-    my $operation_name = shift;
-    
-    my $scope_name     = uc $operation_name;
+    my $scope_name     = shift;
     
    $plugin->{SCOPE}{$scope_name}->close
 }
@@ -274,7 +268,7 @@ sub get_scope {
     my $plugin         = shift;
     my $scope_name     = shift;
     
-    return $plugin->{SCOPE}{uc $scope_name};
+    return $plugin->{SCOPE}{$scope_name};
 }
 
 

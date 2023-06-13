@@ -442,7 +442,7 @@ foreach (@tests) {
             my $exp_spans = [
                 {
                     operation_name =>
-                        CGI::Application::Plugin::OpenTracing::CGI_REQUEST,
+                        'cgi_application_request',
                     tags => {
                         'component'        => "CGI::Application",
                         'http.method'      => uc $method,
