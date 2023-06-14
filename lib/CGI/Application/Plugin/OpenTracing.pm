@@ -12,7 +12,7 @@ use OpenTracing::GlobalTracer;
 
 use Carp qw( croak carp );
 use HTTP::Headers;
-use HTTP::Status qw( is_server_error );
+use HTTP::Status qw( is_server_error :constants);
 use Scalar::Util qw( refaddr );
 use Time::HiRes qw( gettimeofday );
 
@@ -544,7 +544,7 @@ sub _get_http_status_tags {
     my $cgi_app = shift;
     
     my ($status_code, $status_mess) = _cgi_get_header_status($cgi_app);
-    $status_code //= 200;
+    $status_code //= HTTP_OK;
     $status_mess //= HTTP::Status::status_message($status_code);
     
     my %tags = (
@@ -708,7 +708,7 @@ sub _wrap_run {
 
         my $error = $@;
         
-        $cgi_app->header_add(-status => '500');
+        $cgi_app->header_add(-status => HTTP_INTERNAL_SERVER_ERROR);
         
         my $plugin = _get_plugin($cgi_app);
         
