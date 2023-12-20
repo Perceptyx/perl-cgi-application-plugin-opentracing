@@ -3,7 +3,7 @@ package CGI::Application::Plugin::OpenTracing;
 use strict;
 use warnings;
 
-our $VERSION = 'v0.104.1';
+our $VERSION = 'v0.104.2';
 
 use syntax 'maybe';
 
